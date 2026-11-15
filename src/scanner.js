@@ -25,7 +25,11 @@ export function planBatch(state, cfg, limit) {
 /** 再確認分＋新規分をまとめて作る（外部スキャナーにも渡す） */
 export async function buildQueue(db, cfg, limit, now) {
   const state = await getState(db);
-  const rechecks = await dueRechecks(db, now - cfg.recheckMs, Math.ceil(limit / 4));
+  const rechecks = await dueRechecks(
+    db,
+    { availableOlderThan: now - cfg.recheckMs, takenOlderThan: now - cfg.takenRecheckMs },
+    Math.ceil(limit / 4),
+  );
   const plan = planBatch(state, cfg, limit - rechecks.length);
   return { state, queue: [...rechecks.map((r) => ({ name: r.name, len: r.len })), ...plan.items] };
 }

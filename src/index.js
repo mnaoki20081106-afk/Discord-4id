@@ -1,6 +1,6 @@
 import { buildIdMessage, buildStats, getOptions } from './commands.js';
 import { loadConfig } from './config.js';
-import { EPHEMERAL, InteractionType, ResponseType, editOriginal, json, verifyDiscordRequest } from './discord.js';
+import { EPHEMERAL, InteractionType, ResponseType, json, verifyDiscordRequest } from './discord.js';
 import { isValidUsername } from './generator.js';
 import { buildQueue, runScan } from './scanner.js';
 import { applyResults } from './store.js';
@@ -22,16 +22,6 @@ async function handleInteraction(request, env, ctx) {
     const opts = getOptions(interaction);
     const flags = opts.hidden ? EPHEMERAL : 0;
 
-    if (opts.verify) {
-      // 再確認は 3 秒を超えるので deferred で返して後から編集
-      const appId = env.DISCORD_APPLICATION_ID || interaction.application_id;
-      ctx.waitUntil(
-        buildIdMessage(env.DB, cfg, opts)
-          .catch((e) => ({ content: `エラー: ${e.message}` }))
-          .then((msg) => editOriginal(appId, interaction.token, msg)),
-      );
-      return json({ type: ResponseType.DEFERRED_CHANNEL_MESSAGE, data: { flags } });
-    }
     const msg = await buildIdMessage(env.DB, cfg, opts);
     return json({ type: ResponseType.CHANNEL_MESSAGE, data: { ...msg, flags } });
   }

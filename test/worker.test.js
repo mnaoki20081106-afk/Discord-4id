@@ -36,8 +36,8 @@ test('PING に PONG、不正署名は 401', async () => {
 
 test('/id コマンド', async () => {
   const { env, sign } = await setup();
-  await env.DB.prepare('INSERT INTO available VALUES (?, 4, 0, 0)').bind('zz9_').run();
-  const body = JSON.stringify({ type: 2, token: 't', data: { name: 'id', options: [{ name: 'length', value: '4' }] } });
+  await env.DB.prepare("INSERT INTO found VALUES (?, 4, 'available', 0, 0, 0)").bind('zz9_').run();
+  const body = JSON.stringify({ type: 2, token: 't', data: { name: 'id', options: [{ name: 'status', value: 'available' }] } });
   const res = await worker.fetch(await sign(body), env, ctx);
   const j = await res.json();
   assert.equal(j.type, 4);
@@ -51,7 +51,7 @@ test('外部スキャナー API', async () => {
   const b = await (await worker.fetch(new Request('https://w.example/api/batch?limit=5', { headers: auth }), env, ctx)).json();
   assert.equal(b.items.length, 5);
   const results = b.items.map((it, i) => ({ ...it, taken: i !== 2 }));
-  results.push({ name: '../evil', len: 3, taken: false });
+  results.push({ name: '../evil', len: 4, taken: false }, { name: 'abc', len: 3, taken: false });
   const rep = await worker.fetch(
     new Request('https://w.example/api/report', { method: 'POST', headers: auth, body: JSON.stringify({ results }) }),
     env,

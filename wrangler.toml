@@ -13,15 +13,17 @@ database_id = "8e599b34-1a73-40db-a1a6-db57f0e36ad0"
 
 [vars]
 # スキャン対象の文字数（この順に優先して1周ずつ回る）
-SCAN_LENGTHS = "3,4"
+SCAN_LENGTHS = "4"
 # Discord ユーザー名で使える文字（英小文字・数字・_ ・.）
 CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789_."
 # 1回の cron で確認する件数（無料プランのサブリクエスト上限 50 未満にする）
 SCAN_BATCH = "20"
 # リクエスト間の待ち時間(ms)
 SCAN_DELAY_MS = "700"
-# 「空き」と判定した名前を再確認する間隔(時間)
-RECHECK_HOURS = "12"
+# リストの仕分け: 「使える」を再確認する間隔(時間)
+RECHECK_HOURS = "6"
+# リストの仕分け: 「使えない」を再確認する間隔(時間)（空き直すことがあるので）
+TAKEN_RECHECK_HOURS = "72"
 # "worker" = Cloudflare の cron でスキャン / "external" = GitHub Actions などからスキャン
 SCAN_MODE = "external"  # Cloudflare からの確認は Discord に 403 で拒否されたため GitHub Actions でスキャン
 

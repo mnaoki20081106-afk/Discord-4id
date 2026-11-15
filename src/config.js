@@ -8,16 +8,17 @@ function int(v, def) {
 /** env (wrangler vars / process.env) から設定を読む */
 export function loadConfig(env = {}) {
   const charset = [...new Set((env.CHARSET || DEFAULT_CHARSET).toLowerCase())].join('');
-  const lengths = String(env.SCAN_LENGTHS || '3,4')
+  const lengths = String(env.SCAN_LENGTHS || '4')
     .split(',')
     .map((s) => Number.parseInt(s.trim(), 10))
     .filter((n) => n >= 2 && n <= 32);
   return {
     charset,
-    lengths: lengths.length ? lengths : [3, 4],
+    lengths: lengths.length ? lengths : [4],
     batch: Math.min(Math.max(int(env.SCAN_BATCH, 20), 1), 45),
     delayMs: Math.max(int(env.SCAN_DELAY_MS, 700), 0),
-    recheckMs: Math.max(int(env.RECHECK_HOURS, 12), 1) * 3600_000,
+    recheckMs: Math.max(int(env.RECHECK_HOURS, 6), 1) * 3600_000,
+    takenRecheckMs: Math.max(int(env.TAKEN_RECHECK_HOURS, 72), 1) * 3600_000,
     mode: env.SCAN_MODE === 'external' ? 'external' : 'worker',
   };
 }
