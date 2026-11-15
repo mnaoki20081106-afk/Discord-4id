@@ -18,7 +18,7 @@ on:
         required: false
         type: string
       candidate_limit:
-        description: 'proxy-scan: 検証にかける候補数上限（手動テスト用に小さくできる）'
+        description: 'proxy-scan: 検証キューに入れる候補数上限。未指定/0なら全件（約55万件）。手動テスト用に小さくできる'
         required: false
         type: string
 concurrency:

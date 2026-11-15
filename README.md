@@ -100,19 +100,26 @@ GitHub Actions からスキャンできます。public リポジトリなら Act
 `proxy-scan.js` は無料プロキシリストを複数ソースから集め、実際にDiscordまで抜けるものだけを選別し、
 **生きてるプロキシの本数だけ並列**で確認APIを叩く（＝IPを増やしてレート制限バケットを水平に増やす）。
 
+「まず全部検証してからスキャン」という段階分けはしない。**検証班とスキャン班を同じ締切の中で同時に走らせる**:
+
+- 検証班（既定800人）: 集めた候補（既定で全件、~55万件）を手当たり次第チェックし、生きてたら生存プールに積む
+- スキャン班（既定で同時最大300本）: プールから生存プロキシを取り出し、死ぬ（3連続失敗）か締切まで
+  それで撃ち続ける。死んだら即座に捨てて、プールから次の生存プロキシに差し替える
+- 候補がどれだけ多くても最初の1本が生きた瞬間からスキャンが始まり、プールが尽きた・死んだ分は
+  検証班が見つけ続ける新しい生存プロキシで即座に補充される
+
 - 集めるソース: 40個（`src/proxy-pool.js` の `DEFAULT_PROXY_SOURCES`）。xyzs996, monosans, proxifly,
   ProxyScrape API, maximilianfeix, databay-labs, TheSpeedX, clarketm, ShiftyTR, jetkai, mmpx12,
   zloi-user, roosterkid, sunny9577, hendrikbgr, vakhov, MuRongPIG, Anonym0usWork1221, r00tee,
   proxy4parsing, saisuiu, B4RC0DE-TM, ALIILAPRO, a2u, Vann-Dev, proxyscrape-gh, kitzza, lumiolab,
   skyformat99, Al-kuran, iplocate, hackvice, rt45ds, b0ba67, VPSLabCloud, zebbern, xw19930, gfpcom,
-  Skiddle-ID。合計すると50万件を超えるので、検証前にシャッフルして `PROXY_CANDIDATE_LIMIT`（既定6000）
-  まで間引く
+  Skiddle-ID。合計で約55万件
 - SOCKS5はundiciの`ProxyAgent`が対応しないため除外、HTTP/HTTPSプロキシのみ使用
-- 起動時に確認APIへの到達性をまとめて検証し（既知の取得済み名前 `discord` を投げてJSONが返るか）、
-  通ったものだけをワーカープールにする。落ちたプロキシ（403・タイムアウト・接続エラーが続く）は即座に切り離し、
-  予備プロキシに差し替える
-- 各ワーカーは自分が受け取ったレート制限ヘッダー（`x-ratelimit-*`）だけを見てペースを決める。429が来たら
-  そのプロキシだけ`retry_after`待つ（他のプロキシは止まらない）
+- 到達性チェックは既知の取得済み名前 `discord` を投げてJSONが返るかどうか。落ちたプロキシ
+  （403・タイムアウト・接続エラーが続く）は即座に切り離し、検証班が見つけた次の生存プロキシに差し替える
+- 各スキャン班は自分が受け取ったレート制限ヘッダー（`x-ratelimit-*`）だけを見てペースを決める。429が来たら
+  そのプロキシだけ`retry_after`待つ（他のプロキシは止まらない）。ただし残り時間より`retry_after`が長ければ
+  待たずにそのプロキシを手放す
 - 名前の供給・結果報告は既存の `/api/batch` `/api/report` をそのまま使う（seqの整合性はWorker側で管理）
 
 ```bash
@@ -123,11 +130,10 @@ WORKER_URL=... SCAN_SECRET=... npm run scan:proxy
 
 | 変数 | 既定 | 説明 |
 |---|---|---|
-| `SCAN_DURATION_SEC` | `270` | 実行時間（秒） |
-| `PROXY_CANDIDATE_LIMIT` | `150000` | 全ソース合算後（約55万件）、検証にかける候補数の上限（シャッフルして間引く） |
-| `PROXY_MAX_WORKERS` | `400` | 同時に使うプロキシ本数の上限 |
-| `PROXY_VALIDATE_CONCURRENCY` | `1000` | 到達性チェックの並列数 |
-| `PROXY_VALIDATE_DEADLINE_MS` | `600000` | 検証フェーズ全体の上限（10分）。本番は55分枠なので余裕を見て長め |
+| `SCAN_DURATION_SEC` | `270` | 実行時間（秒）。検証とスキャンはこの中で同時に走る |
+| `PROXY_CANDIDATE_LIMIT` | `0`（無制限） | 検証キューに入れる候補数の上限。`0`なら集めた全件（約55万件）を使う |
+| `PROXY_MAX_WORKERS` | `300` | スキャン班の人数（生存プロキシの同時使用上限） |
+| `PROXY_VALIDATE_CONCURRENCY` | `800` | 検証班の人数（同時に到達性チェックする数） |
 | `PROXY_MAX_FAILS` | `3` | 連続失敗でそのプロキシを切る回数 |
 | `SCAN_MIN_DELAY_MS` | `400` | 1プロキシあたりの最低リクエスト間隔 |
 | `PROXY_PROBE_NAME` | `discord` | 到達性チェックに使う既知の取得済みユーザー名 |
