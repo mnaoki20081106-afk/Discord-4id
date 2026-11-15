@@ -175,3 +175,47 @@ test('/scan: GitHub側が失敗応答ならエラーを返す', async () => {
     globalThis.fetch = origFetch;
   }
 });
+
+test('/api/progress: 外部スキャナーの進捗メッセージを通知チャンネルへ転送する', async () => {
+  const { env } = await setup();
+  const { setState } = await import('../src/store.js');
+  await setState(env.DB, { notify_channel_id: 'c1' });
+  env.DISCORD_BOT_TOKEN = 'bot-token';
+
+  const sentTo = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/channels/c1/messages')) {
+      sentTo.push(JSON.parse(init.body));
+      return new Response('{}', { status: 200 });
+    }
+    return origFetch(url, init);
+  };
+  try {
+    const auth = { authorization: 'Bearer s3cret', 'content-type': 'application/json' };
+    const res = await worker.fetch(
+      new Request('https://w.example/api/progress', { method: 'POST', headers: auth, body: JSON.stringify({ message: '📡 進捗テスト' }) }),
+      env,
+      ctx,
+    );
+    assert.equal((await res.json()).ok, true);
+    assert.equal(sentTo.length, 1);
+    assert.match(sentTo[0].content, /進捗テスト/);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test('/api/progress: 未認証は401、通知先未設定なら黙って成功扱い', async () => {
+  const { env } = await setup();
+  const auth = { authorization: 'Bearer s3cret', 'content-type': 'application/json' };
+  const unauth = await worker.fetch(new Request('https://w.example/api/progress', { method: 'POST', body: '{}' }), env, ctx);
+  assert.equal(unauth.status, 401);
+
+  const res = await worker.fetch(
+    new Request('https://w.example/api/progress', { method: 'POST', headers: auth, body: JSON.stringify({ message: 'x' }) }),
+    env,
+    ctx,
+  );
+  assert.equal((await res.json()).ok, true); // notify_channel_id が無いので何も送らず成功扱い
+});

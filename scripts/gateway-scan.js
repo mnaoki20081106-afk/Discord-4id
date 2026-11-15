@@ -27,6 +27,7 @@ const requestTimeoutMs = Number(process.env.GATEWAY_REQUEST_TIMEOUT_MS || 8000);
 const minDelayMs = Number(process.env.SCAN_MIN_DELAY_MS || 300);
 const batchFetchSize = Number(process.env.SCAN_BATCH_FETCH || 500);
 const reportEveryMs = Number(process.env.SCAN_REPORT_INTERVAL_MS || 15000);
+const progressReportMs = Number(process.env.GATEWAY_PROGRESS_REPORT_MS || 300000); // Discordチャンネルへの進捗投稿間隔
 
 const headers = { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -40,6 +41,16 @@ setTimeout(() => {
 
 const fmtRate = (r) =>
   r ? `limit=${r.limit} remaining=${r.remaining} reset_after=${r.resetAfter}s scope=${r.scope ?? '-'}` : '-';
+
+/** Workerの /api/progress 経由で、/channel で設定したDiscordチャンネルに直接投稿する */
+async function postProgress(message) {
+  try {
+    const res = await fetch(`${base}/api/progress`, { method: 'POST', headers, body: JSON.stringify({ message }) });
+    if (!res.ok) console.error(`[progress] ${res.status} ${await res.text()}`);
+  } catch (e) {
+    console.error(`[progress] error: ${e.message}`);
+  }
+}
 
 // --- Worker からの名前供給（共有キュー。足りなくなったら1本だけ補充リクエストを出す） ---
 class SharedQueue {
@@ -166,16 +177,24 @@ async function main() {
     );
   }, heartbeatMs);
 
+  await postProgress(`▶️ スキャン開始（同時${concurrency}セッション、制限時間${(durationMs / 60000).toFixed(0)}分）`);
+  const progressTimer = setInterval(() => {
+    const remainMin = Math.max(0, Math.round((deadline - Date.now()) / 60000));
+    postProgress(`📡 進捗: checked=${total} 429=${limited} errors=${errors} 見つけた=${found.length} | 残り${remainMin}分`);
+  }, progressReportMs);
+
   await Promise.all(workers);
   clearInterval(hb);
   clearInterval(flushTimer);
+  clearInterval(progressTimer);
   await reporter.flush();
 
   const mins = (Date.now() - started) / 60000;
-  console.log(
+  const summary =
     `done. checked=${total} in ${mins.toFixed(1)}min (${(total / Math.max(mins, 0.01)).toFixed(1)}/min) ` +
-      `429s=${limited} errors=${errors} session_rotations=${rotations} found=${found.length} ${found.join(', ')}`,
-  );
+    `429s=${limited} errors=${errors} session_rotations=${rotations} found=${found.length} ${found.join(', ')}`;
+  console.log(summary);
+  await postProgress(`🏁 スキャン完了: checked=${total}件 (${mins.toFixed(1)}分) | 429=${limited} errors=${errors} 見つけた=${found.length}`);
   process.exit(0);
 }
 

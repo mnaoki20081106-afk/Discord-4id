@@ -138,6 +138,21 @@ async function handleReport(request, env) {
   return json({ ok: true, accepted: results.length });
 }
 
+/** 外部スキャナー用: 実行中の進捗メッセージを /channel で設定したチャンネルにそのまま転送する */
+async function handleProgress(request, env) {
+  if (!authorized(request, env)) return new Response('unauthorized', { status: 401 });
+  const payload = await request.json().catch(() => null);
+  if (!payload || typeof payload.message !== 'string' || !payload.message) return new Response('bad request', { status: 400 });
+  const state = await getState(env.DB);
+  const channelId = state.notify_channel_id;
+  if (channelId && env.DISCORD_BOT_TOKEN) {
+    await sendChannelMessage(env.DISCORD_BOT_TOKEN, channelId, payload.message.slice(0, 1900)).catch((e) =>
+      console.error('[progress] failed', e),
+    );
+  }
+  return json({ ok: true });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -147,6 +162,7 @@ export default {
       }
       if (request.method === 'GET' && url.pathname === '/api/batch') return await handleBatch(request, env, url);
       if (request.method === 'POST' && url.pathname === '/api/report') return await handleReport(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/progress') return await handleProgress(request, env);
       if (request.method === 'GET' && url.pathname === '/') {
         const stats = await buildStats(env.DB, loadConfig(env)).catch((e) => `DB error: ${e.message}`);
         return new Response(`discord-4id is running\n\n${stats}\n`, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
