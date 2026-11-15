@@ -100,11 +100,13 @@ GitHub Actions からスキャンできます。public リポジトリなら Act
 `proxy-scan.js` は無料プロキシリストを複数ソースから集め、実際にDiscordまで抜けるものだけを選別し、
 **生きてるプロキシの本数だけ並列**で確認APIを叩く（＝IPを増やしてレート制限バケットを水平に増やす）。
 
-- 集めるソース: 22個（`src/proxy-pool.js` の `DEFAULT_PROXY_SOURCES`）。xyzs996, monosans, proxifly,
+- 集めるソース: 40個（`src/proxy-pool.js` の `DEFAULT_PROXY_SOURCES`）。xyzs996, monosans, proxifly,
   ProxyScrape API, maximilianfeix, databay-labs, TheSpeedX, clarketm, ShiftyTR, jetkai, mmpx12,
   zloi-user, roosterkid, sunny9577, hendrikbgr, vakhov, MuRongPIG, Anonym0usWork1221, r00tee,
-  proxy4parsing, saisuiu, B4RC0DE-TM。合計すると数万〜十数万件になるので、検証前にシャッフルして
-  `PROXY_CANDIDATE_LIMIT`（既定6000）まで間引く
+  proxy4parsing, saisuiu, B4RC0DE-TM, ALIILAPRO, a2u, Vann-Dev, proxyscrape-gh, kitzza, lumiolab,
+  skyformat99, Al-kuran, iplocate, hackvice, rt45ds, b0ba67, VPSLabCloud, zebbern, xw19930, gfpcom,
+  Skiddle-ID。合計すると50万件を超えるので、検証前にシャッフルして `PROXY_CANDIDATE_LIMIT`（既定6000）
+  まで間引く
 - SOCKS5はundiciの`ProxyAgent`が対応しないため除外、HTTP/HTTPSプロキシのみ使用
 - 起動時に確認APIへの到達性をまとめて検証し（既知の取得済み名前 `discord` を投げてJSONが返るか）、
   通ったものだけをワーカープールにする。落ちたプロキシ（403・タイムアウト・接続エラーが続く）は即座に切り離し、

@@ -33,6 +33,23 @@ export const DEFAULT_PROXY_SOURCES = [
   { name: 'proxy4parsing', url: 'https://raw.githubusercontent.com/proxy4parsing/proxy-list/main/http.txt' },
   { name: 'saisuiu', url: 'https://raw.githubusercontent.com/saisuiu/Lionkings-Http-Proxys-Proxies/main/free.txt' },
   { name: 'B4RC0DE-TM', url: 'https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/HTTP.txt' },
+  { name: 'ALIILAPRO', url: 'https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/http.txt' },
+  { name: 'a2u', url: 'https://raw.githubusercontent.com/a2u/free-proxy-list/master/free-proxy-list.txt' },
+  { name: 'Vann-Dev', url: 'https://raw.githubusercontent.com/Vann-Dev/proxy-list/main/proxies/http.txt' },
+  { name: 'proxyscrape-gh', url: 'https://raw.githubusercontent.com/proxyscrape/free-proxy-list/main/proxies/all/data.txt' },
+  { name: 'kitzza', url: 'https://raw.githubusercontent.com/kitzza/PROXY-List/master/http.txt' },
+  { name: 'lumiolab', url: 'https://raw.githubusercontent.com/lumiolab/free-proxy-list/main/proxies/all/data.txt' },
+  { name: 'skyformat99', url: 'https://raw.githubusercontent.com/skyformat99/free-proxy-list/main/proxies/all/data.txt' },
+  { name: 'Al-kuran', url: 'https://raw.githubusercontent.com/Al-kuran/proxy-list/master/proxy-list.txt' },
+  { name: 'iplocate', url: 'https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/http.txt' },
+  { name: 'hackvice', url: 'https://raw.githubusercontent.com/hackvice/proxy-list/master/proxy-list.txt' },
+  { name: 'rt45ds', url: 'https://raw.githubusercontent.com/rt45ds/PROXY-List/master/http.txt' },
+  { name: 'b0ba67', url: 'https://raw.githubusercontent.com/b0ba67/PROXY-List/master/http.txt' },
+  { name: 'VPSLabCloud', url: 'https://raw.githubusercontent.com/VPSLabCloud/VPSLab-Free-Proxy-List/main/all_proxies.txt' },
+  { name: 'zebbern', url: 'https://raw.githubusercontent.com/zebbern/proxy-scraper/main/http.txt' },
+  { name: 'xw19930', url: 'https://raw.githubusercontent.com/xw19930/proxy-scraper/master/proxies.txt' },
+  { name: 'gfpcom', url: 'https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/http.txt' },
+  { name: 'Skiddle-ID', url: 'https://skiddle-id.github.io/proxylist/generated/http_proxies.txt' },
 ];
 
 const LINE_RE = /^(?:(https?|socks[45]):\/\/)?(?:[^@\s/]+@)?(\d{1,3}(?:\.\d{1,3}){3}):(\d{2,5})\b/i;
