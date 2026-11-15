@@ -90,12 +90,27 @@ function makeReporter() {
 async function validateProxies(candidates) {
   console.log(`[proxy-scan] ${candidates.length}件の候補をDiscord相手に検証中...`);
   const alive = [];
+  const errorTally = new Map();
+  let shown = 0;
   await mapLimit(candidates, validateConcurrency, async (p) => {
     const fx = makeProxyFetch(p, { requestTimeoutMs: 6000 });
     const r = await checkUsername(probeName, { fetchImpl: fx }).catch((e) => ({ status: 'error', message: String(e?.message || e) }));
-    if (r.status === 'taken' || r.status === 'available' || r.status === 'ratelimited') alive.push(p);
+    if (r.status === 'taken' || r.status === 'available' || r.status === 'ratelimited') {
+      alive.push(p);
+    } else {
+      const key = r.status === 'error' ? `${r.code ?? '-'} ${String(r.message || '').split('\n')[0].slice(0, 80)}` : r.status;
+      errorTally.set(key, (errorTally.get(key) || 0) + 1);
+      if (process.env.PROXY_DEBUG === 'true' && shown < 20) {
+        shown++;
+        console.log(`[proxy-debug] ${proxyKey(p)} -> ${key}`);
+      }
+    }
   });
   console.log(`[proxy-scan] 生存: ${alive.length}/${candidates.length}`);
+  if (!alive.length || process.env.PROXY_DEBUG === 'true') {
+    const top = [...errorTally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    for (const [reason, count] of top) console.log(`[proxy-scan] 失敗理由: ${reason} x${count}`);
+  }
   return alive;
 }
 
