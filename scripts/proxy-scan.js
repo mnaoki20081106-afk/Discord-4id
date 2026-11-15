@@ -9,7 +9,7 @@
 // 即座に次へ差し替わる。
 //   WORKER_URL=https://xxx.workers.dev SCAN_SECRET=... node scripts/proxy-scan.js
 import { checkUsername, paceMs } from '../src/checker.js';
-import { fetchProxyCandidates, makeProxyFetch, proxyKey, withDeadline } from '../src/proxy-pool.js';
+import { fetchProxyCandidates, makeProxyFetch, proxyKey, tcpProbe, withDeadline } from '../src/proxy-pool.js';
 
 const base = (process.env.WORKER_URL || '').replace(/\/$/, '');
 const secret = process.env.SCAN_SECRET;
@@ -25,6 +25,7 @@ const maxScanWorkers = Number(process.env.PROXY_MAX_WORKERS || 300); // スキ�
 const candidateLimitEnv = Number(process.env.PROXY_CANDIDATE_LIMIT || 0);
 const candidateLimit = candidateLimitEnv > 0 ? candidateLimitEnv : Infinity; // 未指定なら集めた全件を使う
 const validateTimeoutMs = Number(process.env.PROXY_VALIDATE_TIMEOUT_MS || 4000); // 1本あたりの到達性チェック
+const tcpProbeTimeoutMs = Number(process.env.PROXY_TCP_TIMEOUT_MS || 2000); // 本番チェック前のポート疎通だけの軽量フィルタ
 const minDelayMs = Number(process.env.SCAN_MIN_DELAY_MS || 400);
 const probeName = process.env.PROXY_PROBE_NAME || 'discord'; // 既に取られている名前。JSONが返れば抜けてる証拠
 const batchFetchSize = Number(process.env.SCAN_BATCH_FETCH || 500); // Workerから一度に引く件数
@@ -130,6 +131,7 @@ async function main() {
   let validated = 0;
   let aliveFound = 0;
   let deadOnArrival = 0;
+  let portDead = 0; // TCPの時点で死んでた（Discordへの通信量を一切使わずに弾けた）
   let validatorsRunning = 0;
 
   async function validatorWorker() {
@@ -138,6 +140,14 @@ async function main() {
       while (Date.now() < deadline) {
         const p = nextCandidate();
         if (!p) return;
+        // 先に激安のTCP疎通だけ見る。候補の大半はここで死ぬので、Discordまでの
+        // TLSハンドシェイク分の通信量を無駄にしないで済む
+        const reachable = await tcpProbe(p, tcpProbeTimeoutMs);
+        if (!reachable) {
+          validated++;
+          portDead++;
+          continue;
+        }
         const fx = makeProxyFetch(p, { requestTimeoutMs: validateTimeoutMs });
         fx.proxy = p;
         const r = await checkUsername(probeName, { fetchImpl: fx }).catch((e) => ({ status: 'error', message: String(e?.message || e) }));
@@ -221,7 +231,7 @@ async function main() {
   const hb = setInterval(() => {
     const remain = Math.max(0, Math.round((deadline - Date.now()) / 1000));
     console.log(
-      `[proxy-scan] heartbeat: 検証${validated}/${allCandidates.length}(生存${aliveFound}/DOA${deadOnArrival}) | ` +
+      `[proxy-scan] heartbeat: 検証${validated}/${allCandidates.length}(生存${aliveFound}/ポート死${portDead}/DOA${deadOnArrival}) | ` +
         `スキャン済${total} 429=${limited} 死亡=${scanDead} | プール待機${alivePool.length}本 | 残り${remain}秒`,
     );
   }, heartbeatMs);
@@ -237,7 +247,7 @@ async function main() {
   const mins = (Date.now() - started) / 60000;
   console.log(
     `done. checked=${total} in ${mins.toFixed(1)}min (${(total / Math.max(mins, 0.01)).toFixed(1)}/min) ` +
-      `validated=${validated}/${allCandidates.length} alive_found=${aliveFound} dead_on_arrival=${deadOnArrival} ` +
+      `validated=${validated}/${allCandidates.length} alive_found=${aliveFound} port_dead=${portDead} dead_on_arrival=${deadOnArrival} ` +
       `429s=${limited} dead_in_scan=${scanDead} found=${found.length} ${found.join(', ')}`,
   );
   // ProxyAgent のソケットが残ってイベントループが閉じない場合があるので明示的に終了する

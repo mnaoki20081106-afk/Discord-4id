@@ -1,6 +1,7 @@
 // 無料プロキシ経由で Discord の非認証確認API (username-attempt-unauthed) を叩くためのプール管理。
 // 各ソースから ip:port を集めて、実際に Discord まで抜けるものだけ残す（HTTP/HTTPSのみ。SOCKSはundiciが
 // ネイティブ対応しないので除外）。各プロキシは別IPなので、1本ずつ独立したレート制限バケットを持つ想定。
+import net from 'node:net';
 import { fetch as undiciFetch, ProxyAgent } from 'undici';
 // Node のグローバル fetch は内蔵版 undici を使っており、npm の undici パッケージが作る
 // ProxyAgent（dispatcher）を渡すとインターセプタのバージョン不一致で
@@ -103,6 +104,29 @@ export async function fetchProxyCandidates(sources = DEFAULT_PROXY_SOURCES, { fe
     }),
   );
   return [...out.values()];
+}
+
+/**
+ * プロキシのポートが生きてる(TCPで繋がる)かだけを見る超軽量チェック。
+ * HTTPSの本番チェック(Discordまでの完全なTLSハンドシェイク)はポートすら開いてないプロキシにも
+ * 律儀にやろうとすると通信量を無駄に食う（候補の8〜9割はポートからして死んでいる）。
+ * これで先にふるいにかけてから、生きてるものだけ本番チェックに回す。
+ */
+export function tcpProbe(proxy, timeoutMs = 2500) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: proxy.host, port: proxy.port });
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
 }
 
 /**

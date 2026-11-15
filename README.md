@@ -115,6 +115,9 @@ GitHub Actions からスキャンできます。public リポジトリなら Act
   skyformat99, Al-kuran, iplocate, hackvice, rt45ds, b0ba67, VPSLabCloud, zebbern, xw19930, gfpcom,
   Skiddle-ID。合計で約55万件
 - SOCKS5はundiciの`ProxyAgent`が対応しないため除外、HTTP/HTTPSプロキシのみ使用
+- 本番チェック（Discordまでの完全なTLSハンドシェイク）の前に、まずTCP疎通だけの激安チェックで
+  ふるいにかける。候補の大半（実測8〜9割）はポートからして死んでいるので、ここで弾けば
+  Discordまでの通信量をその分まるごと節約できる（有料プロキシに切り替えたときの従量課金対策）
 - 到達性チェックは既知の取得済み名前 `discord` を投げてJSONが返るかどうか。落ちたプロキシ
   （403・タイムアウト・接続エラーが続く）は即座に切り離し、検証班が見つけた次の生存プロキシに差し替える
 - 各スキャン班は自分が受け取ったレート制限ヘッダー（`x-ratelimit-*`）だけを見てペースを決める。429が来たら
