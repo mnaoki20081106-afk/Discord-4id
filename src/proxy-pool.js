@@ -13,6 +13,22 @@ export const DEFAULT_PROXY_SOURCES = [
   },
   { name: 'maximilianfeix', url: 'https://raw.githubusercontent.com/maximilianfeix/free-proxy-list/main/all.txt' },
   { name: 'databay-labs', url: 'https://raw.githubusercontent.com/databay-labs/free-proxy-list/master/http.txt' },
+  { name: 'TheSpeedX', url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt' },
+  { name: 'clarketm', url: 'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt' },
+  { name: 'ShiftyTR', url: 'https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt' },
+  { name: 'jetkai', url: 'https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt' },
+  { name: 'mmpx12', url: 'https://raw.githubusercontent.com/mmpx12/proxy-list/master/http.txt' },
+  { name: 'zloi-user', url: 'https://raw.githubusercontent.com/zloi-user/hideip.me/main/http.txt' },
+  { name: 'roosterkid', url: 'https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt' },
+  { name: 'sunny9577', url: 'https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/proxies.txt' },
+  { name: 'hendrikbgr', url: 'https://raw.githubusercontent.com/hendrikbgr/Free-Proxy-Repo/master/proxy_list.txt' },
+  { name: 'vakhov', url: 'https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/http.txt' },
+  { name: 'MuRongPIG', url: 'https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/http.txt' },
+  { name: 'Anonym0usWork1221', url: 'https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/http_proxies.txt' },
+  { name: 'r00tee', url: 'https://raw.githubusercontent.com/r00tee/Proxy-List/main/Https.txt' },
+  { name: 'proxy4parsing', url: 'https://raw.githubusercontent.com/proxy4parsing/proxy-list/main/http.txt' },
+  { name: 'saisuiu', url: 'https://raw.githubusercontent.com/saisuiu/Lionkings-Http-Proxys-Proxies/main/free.txt' },
+  { name: 'B4RC0DE-TM', url: 'https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/HTTP.txt' },
 ];
 
 const LINE_RE = /^(?:(https?|socks[45]):\/\/)?(?:[^@\s/]+@)?(\d{1,3}(?:\.\d{1,3}){3}):(\d{2,5})\b/i;

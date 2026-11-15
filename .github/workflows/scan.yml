@@ -8,6 +8,15 @@ on:
   schedule:
     - cron: '0 * * * *'  # 1時間ごとに起動し、各回 約55分スキャン（concurrency で重複しない）
   workflow_dispatch:
+    inputs:
+      proxy_scan:
+        description: 'true でプロキシ並列スキャナーを使う（未指定なら Variables の PROXY_SCAN に従う）'
+        required: false
+        type: string
+      duration_sec:
+        description: '実行時間（秒）。手動テスト用に短くできる'
+        required: false
+        type: string
 concurrency:
   group: scan
   cancel-in-progress: false
@@ -33,7 +42,7 @@ jobs:
         env:
           WORKER_URL: ${{ vars.WORKER_URL || 'https://discord-4id.c53gftun651-tiktok.workers.dev' }}
           SCAN_SECRET: ${{ secrets.SCAN_SECRET }}
-          SCAN_DURATION_SEC: '3300'
-          PROXY_SCAN: ${{ vars.PROXY_SCAN }}
+          SCAN_DURATION_SEC: ${{ inputs.duration_sec || '3300' }}
+          PROXY_SCAN: ${{ inputs.proxy_scan || vars.PROXY_SCAN }}
           PROXY_MAX_WORKERS: ${{ vars.PROXY_MAX_WORKERS }}
           PROXY_VALIDATE_CONCURRENCY: ${{ vars.PROXY_VALIDATE_CONCURRENCY }}

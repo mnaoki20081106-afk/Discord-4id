@@ -100,8 +100,11 @@ GitHub Actions からスキャンできます。public リポジトリなら Act
 `proxy-scan.js` は無料プロキシリストを複数ソースから集め、実際にDiscordまで抜けるものだけを選別し、
 **生きてるプロキシの本数だけ並列**で確認APIを叩く（＝IPを増やしてレート制限バケットを水平に増やす）。
 
-- 集めるソース: xyzs996/free-proxy-health-list, monosans/proxy-list, proxifly/free-proxy-list,
-  ProxyScrape API, maximilianfeix/free-proxy-list, databay-labs/free-proxy-list（`src/proxy-pool.js`）
+- 集めるソース: 22個（`src/proxy-pool.js` の `DEFAULT_PROXY_SOURCES`）。xyzs996, monosans, proxifly,
+  ProxyScrape API, maximilianfeix, databay-labs, TheSpeedX, clarketm, ShiftyTR, jetkai, mmpx12,
+  zloi-user, roosterkid, sunny9577, hendrikbgr, vakhov, MuRongPIG, Anonym0usWork1221, r00tee,
+  proxy4parsing, saisuiu, B4RC0DE-TM。合計すると数万〜十数万件になるので、検証前にシャッフルして
+  `PROXY_CANDIDATE_LIMIT`（既定6000）まで間引く
 - SOCKS5はundiciの`ProxyAgent`が対応しないため除外、HTTP/HTTPSプロキシのみ使用
 - 起動時に確認APIへの到達性をまとめて検証し（既知の取得済み名前 `discord` を投げてJSONが返るか）、
   通ったものだけをワーカープールにする。落ちたプロキシ（403・タイムアウト・接続エラーが続く）は即座に切り離し、
@@ -119,8 +122,9 @@ WORKER_URL=... SCAN_SECRET=... npm run scan:proxy
 | 変数 | 既定 | 説明 |
 |---|---|---|
 | `SCAN_DURATION_SEC` | `270` | 実行時間（秒） |
+| `PROXY_CANDIDATE_LIMIT` | `6000` | 全ソース合算後、検証にかける候補数の上限（シャッフルして間引く） |
 | `PROXY_MAX_WORKERS` | `150` | 同時に使うプロキシ本数の上限 |
-| `PROXY_VALIDATE_CONCURRENCY` | `80` | 到達性チェックの並列数 |
+| `PROXY_VALIDATE_CONCURRENCY` | `250` | 到達性チェックの並列数 |
 | `PROXY_MAX_FAILS` | `3` | 連続失敗でそのプロキシを切る回数 |
 | `SCAN_MIN_DELAY_MS` | `400` | 1プロキシあたりの最低リクエスト間隔 |
 | `PROXY_PROBE_NAME` | `discord` | 到達性チェックに使う既知の取得済みユーザー名 |

@@ -13,7 +13,8 @@ if (!base || !secret) {
 }
 
 const durationMs = Number(process.env.SCAN_DURATION_SEC || 270) * 1000;
-const validateConcurrency = Number(process.env.PROXY_VALIDATE_CONCURRENCY || 80);
+const validateConcurrency = Number(process.env.PROXY_VALIDATE_CONCURRENCY || 250);
+const candidateLimit = Number(process.env.PROXY_CANDIDATE_LIMIT || 6000); // ソース合計が数万〜十数万になるので検証前に間引く
 const maxWorkers = Number(process.env.PROXY_MAX_WORKERS || 150);
 const minDelayMs = Number(process.env.SCAN_MIN_DELAY_MS || 400);
 const probeName = process.env.PROXY_PROBE_NAME || 'discord'; // 既に取られている名前。JSONが返れば抜けてる証拠
@@ -102,12 +103,20 @@ async function main() {
   const started = Date.now();
   const deadline = started + durationMs;
 
-  const candidates = await fetchProxyCandidates();
-  console.log(`[proxy-scan] 候補合計: ${candidates.length}`);
-  if (!candidates.length) {
+  const allCandidates = await fetchProxyCandidates();
+  console.log(`[proxy-scan] 候補合計: ${allCandidates.length}`);
+  if (!allCandidates.length) {
     console.error('プロキシ候補が1件も取得できなかった。中止。');
     process.exit(1);
   }
+  // ソースを全部合わせると数万〜十数万件になり得るので、検証が終わらない事態を避けるため
+  // シャッフルして上限まで間引く（特定ソース偏重を避ける）
+  for (let i = allCandidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allCandidates[i], allCandidates[j]] = [allCandidates[j], allCandidates[i]];
+  }
+  const candidates = allCandidates.slice(0, candidateLimit);
+  console.log(`[proxy-scan] 検証対象: ${candidates.length}/${allCandidates.length}`);
 
   let alive = await validateProxies(candidates);
   const spares = alive.splice(maxWorkers);
