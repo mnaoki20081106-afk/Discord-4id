@@ -49,12 +49,14 @@ export async function editOriginal(applicationId, token, data, fetchImpl = fetch
 /**
  * Bot トークンでチャンネルに能動的にメッセージを送る（即時通知用）。
  * インタラクションへの応答と違い、Botをそのサーバーに `bot` スコープで招待していないと送れない。
+ * mentionEveryone: true なら本文中の @everyone / @here を実際に通知として飛ばす
+ * （Discordはデフォルトでメンションを無効化するので、許可リストに明示的に加える必要がある）。
  */
-export async function sendChannelMessage(botToken, channelId, content, fetchImpl = fetch) {
+export async function sendChannelMessage(botToken, channelId, content, { mentionEveryone = false } = {}, fetchImpl = fetch) {
   const res = await fetchImpl(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bot ${botToken}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+    body: JSON.stringify({ content, allowed_mentions: { parse: mentionEveryone ? ['everyone'] : [] } }),
   });
   if (!res.ok) console.error(`[notify] ${res.status} ${await res.text()}`);
   return res;

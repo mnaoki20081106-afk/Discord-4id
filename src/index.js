@@ -10,16 +10,27 @@ function authorized(request, env) {
   return Boolean(env.SCAN_SECRET) && auth === `Bearer ${env.SCAN_SECRET}`;
 }
 
-/** 新しく見つかった全部アルファベットの名前を、/channel で設定したチャンネルに即時通知する */
+/**
+ * 新しく見つかった名前を、/channel で設定したチャンネルに即時通知する。
+ * urgent（全部アルファベット or 3文字ID）は @everyone 付きで別メッセージとして送る。
+ */
 function makeNotifier(env) {
-  return async (names) => {
-    if (!env.DISCORD_BOT_TOKEN || !names?.length) return;
+  return async (finds) => {
+    if (!env.DISCORD_BOT_TOKEN || !finds?.length) return;
     const state = await getState(env.DB);
     const channelId = state.notify_channel_id;
     if (!channelId) return;
-    const list = names.map((n) => `\`${n}\``).join(', ');
-    const content = `🔤 全部アルファベットの4文字ID発見: ${list}`;
-    await sendChannelMessage(env.DISCORD_BOT_TOKEN, channelId, content);
+
+    const urgent = finds.filter((f) => f.urgent);
+    const normal = finds.filter((f) => !f.urgent);
+    const fmt = (list) => list.map((f) => `\`${f.name}\``).join(', ');
+
+    if (urgent.length) {
+      await sendChannelMessage(env.DISCORD_BOT_TOKEN, channelId, `@everyone 🚨 空き発見: ${fmt(urgent)}`, { mentionEveryone: true });
+    }
+    if (normal.length) {
+      await sendChannelMessage(env.DISCORD_BOT_TOKEN, channelId, `🆕 空き発見: ${fmt(normal)}`);
+    }
   };
 }
 

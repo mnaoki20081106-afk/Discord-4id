@@ -84,7 +84,7 @@ test('/channel: サーバー外では使えない', async () => {
   assert.match(j.data.content, /サーバー内/);
 });
 
-test('外部スキャナー: 全部アルファベットの新規空きが見つかったら通知チャンネルに送る', async () => {
+test('外部スキャナー: 新規空きが見つかったら通知チャンネルに送る（urgentは@everyone付きで別送）', async () => {
   const { env } = await setup();
   const { setState } = await import('../src/store.js');
   await setState(env.DB, { notify_channel_id: 'c1' });
@@ -101,15 +101,23 @@ test('外部スキャナー: 全部アルファベットの新規空きが見つ
   };
   try {
     const auth = { authorization: 'Bearer s3cret' };
-    const results = [{ name: 'abcd', len: 4, taken: false }]; // 全部アルファベット
+    const results = [
+      { name: 'abcd', len: 4, taken: false }, // 全部アルファベット → urgent
+      { name: 'ab12', len: 4, taken: false }, // 数字入り4文字 → 通常
+    ];
     const res = await worker.fetch(
       new Request('https://w.example/api/report', { method: 'POST', headers: auth, body: JSON.stringify({ results }) }),
       env,
       ctx,
     );
-    assert.equal((await res.json()).accepted, 1);
-    assert.equal(sentTo.length, 1);
-    assert.match(sentTo[0].content, /abcd/);
+    assert.equal((await res.json()).accepted, 2);
+    assert.equal(sentTo.length, 2);
+    const urgentMsg = sentTo.find((m) => m.content.includes('abcd'));
+    const normalMsg = sentTo.find((m) => m.content.includes('ab12'));
+    assert.match(urgentMsg.content, /@everyone/);
+    assert.deepEqual(urgentMsg.allowed_mentions.parse, ['everyone']);
+    assert.doesNotMatch(normalMsg.content, /@everyone/);
+    assert.deepEqual(normalMsg.allowed_mentions.parse, []);
   } finally {
     globalThis.fetch = origFetch;
   }

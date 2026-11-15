@@ -40,8 +40,13 @@ export async function dueRechecks(db, { availableOlderThan, takenOlderThan }, li
   return results || [];
 }
 
-// 数字・_・. を含まない、a-z だけの名前（「全部アルファベット」の通知対象）
+// 数字・_・. を含まない、a-z だけの名前（緊急通知の対象の一つ）
 const ALL_LETTERS_RE = /^[a-z]+$/;
+
+/** 緊急通知（@everyone付き）にするか: 全部アルファベット、または3文字ID */
+function isUrgent(name, len) {
+  return ALL_LETTERS_RE.test(name) || len === 3;
+}
 
 /**
  * 確認結果を保存する。results: [{name, len, taken, seq?}]
@@ -49,8 +54,9 @@ const ALL_LETTERS_RE = /^[a-z]+$/;
  * - 取られている → リストにあれば「使えない」に更新（リストにない名前は保存しない）
  * seq 付きの結果があればその文字数のカーソルを進める。
  *
- * @returns {Promise<{newlyAvailable: string[]}>} 今回のバッチで新しく「使える」になった、
- *   全部アルファベットの名前（即時通知の対象。既に使える状態だったものは含まない）
+ * @returns {Promise<{newlyAvailable: Array<{name: string, len: number, urgent: boolean}>}>}
+ *   今回のバッチで新しく「使える」になった名前（既に使える状態だったものは含まない）。
+ *   urgent: true は全部アルファベット or 3文字ID（@everyone付きで通知する対象）
  */
 export async function applyResults(db, results, now, extraState = {}) {
   const state = await getState(db);
@@ -64,7 +70,7 @@ export async function applyResults(db, results, now, extraState = {}) {
     const { results: rows } = await db.prepare(`SELECT name, status FROM found WHERE name IN (${placeholders})`).bind(...availableNames).all();
     for (const row of rows || []) prevStatus.set(row.name, row.status);
   }
-  const newlyAvailable = new Set();
+  const newlyAvailable = new Map(); // name -> {name, len, urgent}
 
   for (const r of results) {
     const status = r.taken ? 'taken' : 'available';
@@ -90,7 +96,9 @@ export async function applyResults(db, results, now, extraState = {}) {
           )
           .bind(r.name, r.len, status, now),
       );
-      if (prevStatus.get(r.name) !== 'available' && ALL_LETTERS_RE.test(r.name)) newlyAvailable.add(r.name);
+      if (prevStatus.get(r.name) !== 'available') {
+        newlyAvailable.set(r.name, { name: r.name, len: r.len, urgent: isUrgent(r.name, r.len) });
+      }
     }
     if (Number.isInteger(r.seq)) maxSeq[r.len] = Math.max(maxSeq[r.len] ?? -1, r.seq);
   }
@@ -102,7 +110,7 @@ export async function applyResults(db, results, now, extraState = {}) {
   for (const [k, v] of Object.entries(extraState)) stmts.push(setStateStmt(db, k, v));
   await db.batch(stmts);
 
-  return { newlyAvailable: [...newlyAvailable] };
+  return { newlyAvailable: [...newlyAvailable.values()] };
 }
 
 /** status: 'available' | 'taken' | null(すべて) */

@@ -77,7 +77,7 @@ export const COMMANDS = [
   },
   {
     name: 'channel',
-    description: '全部アルファベット（数字/記号なし）の4文字IDが見つかった時の通知先に、このチャンネルを設定',
+    description: '空きIDが見つかった時の通知先に、このチャンネルを設定（全部アルファベット/3文字IDは@everyone付き）',
     integration_types: [0],
     contexts: [0],
     default_member_permissions: '32', // MANAGE_GUILD。鯖管理者だけに絞る

@@ -81,11 +81,18 @@ test('3,4 を指定すると 3文字を1周してから4文字へ', async () => 
   assert.ok(Number((await getState(db))['seq:4']) >= 20);
 });
 
-test('applyResults: 新規に空きになった全部アルファベットの名前だけを通知対象として返す', async () => {
+test('applyResults: 新しく空きになった名前を全部返す。urgent は全部アルファベット or 3文字ID', async () => {
   const db = createFakeD1();
   // 初回: 全部アルファベット(abcd)と、数字入り(ab12)が同時に空き
   let { newlyAvailable } = await applyResults(db, [{ name: 'abcd', len: 4, taken: false }, { name: 'ab12', len: 4, taken: false }], 1000);
-  assert.deepEqual(newlyAvailable, ['abcd']); // 数字入りは対象外
+  assert.deepEqual(
+    new Set(newlyAvailable.map((f) => `${f.name}:${f.urgent}`)),
+    new Set(['abcd:true', 'ab12:false']),
+  );
+
+  // 3文字ID（数字入りでも urgent）
+  ({ newlyAvailable } = await applyResults(db, [{ name: 'a1b', len: 3, taken: false }], 1500));
+  assert.deepEqual(newlyAvailable, [{ name: 'a1b', len: 3, urgent: true }]);
 
   // 同じ名前が再確認でまだ空きのままでも、二重通知しない
   ({ newlyAvailable } = await applyResults(db, [{ name: 'abcd', len: 4, taken: false }], 2000));
@@ -94,21 +101,21 @@ test('applyResults: 新規に空きになった全部アルファベットの名
   // 取られて → また空き直したら、再度通知対象になる
   await applyResults(db, [{ name: 'abcd', len: 4, taken: true }], 3000);
   ({ newlyAvailable } = await applyResults(db, [{ name: 'abcd', len: 4, taken: false }], 4000));
-  assert.deepEqual(newlyAvailable, ['abcd']);
+  assert.deepEqual(newlyAvailable, [{ name: 'abcd', len: 4, urgent: true }]);
 });
 
-test('runScan: 新規に空きになった全部アルファベットの名前があれば notify を呼ぶ', async () => {
+test('runScan: 新しく空きになった名前があれば notify を呼ぶ（全件、urgentフラグ付き）', async () => {
   const db = createFakeD1();
   const target = new Set([seqToName(3, 4, cfg.charset), seqToName(10, 4, cfg.charset)]);
   const notified = [];
   const r = await runScan(db, cfg, {
     fetchImpl: mockDiscord({ available: target }),
     sleep: noSleep,
-    notify: async (names) => notified.push(...names),
+    notify: async (finds) => notified.push(...finds),
   });
   assert.equal(r.checked, 20);
-  const expectAllLetters = [...target].filter((n) => /^[a-z]+$/.test(n));
-  assert.deepEqual(new Set(notified), new Set(expectAllLetters));
+  assert.deepEqual(new Set(notified.map((f) => f.name)), target);
+  for (const f of notified) assert.equal(f.urgent, /^[a-z]+$/.test(f.name));
 });
 
 test('/id: 使える / 使えない / すべて', async () => {
