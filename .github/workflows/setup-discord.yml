@@ -1,0 +1,46 @@
+# Discord 側のセットアップ（手動実行）
+# Secrets に DISCORD_BOT_TOKEN を入れて Actions → setup-discord → Run workflow
+#  1. アプリの Public Key を表示（公開情報なのでログに出してOK）
+#  2. /id コマンドを登録
+#  3. Interactions Endpoint URL を Worker の URL に設定（Worker に Public Key が設定済みである必要あり）
+name: setup-discord
+on:
+  workflow_dispatch:
+    inputs:
+      endpoint_url:
+        description: 'Interactions Endpoint URL'
+        default: 'https://discord-4id.c53gftun651-tiktok.workers.dev/'
+      set_endpoint:
+        description: 'Endpoint URL も設定する'
+        type: boolean
+        default: true
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Show application info
+        env:
+          TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          curl -sf -H "Authorization: Bot $TOKEN" https://discord.com/api/v10/applications/@me \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);console.log("APP_ID="+a.id);console.log("PUBLIC_KEY="+a.verify_key);console.log("ENDPOINT="+a.interactions_endpoint_url)})'
+      - name: Register /id command
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_APPLICATION_ID: '1571403390796439564'
+        run: node scripts/register-commands.js
+      - name: Set interactions endpoint URL
+        if: inputs.set_endpoint
+        env:
+          TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          URL: ${{ inputs.endpoint_url }}
+        run: |
+          curl -sS -X PATCH -H "Authorization: Bot $TOKEN" -H 'Content-Type: application/json' \
+            -d "{\"interactions_endpoint_url\":\"$URL\"}" https://discord.com/api/v10/applications/@me \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);if(a.interactions_endpoint_url){console.log("OK endpoint="+a.interactions_endpoint_url)}else{console.log(s);process.exit(1)}})'
+      - name: Invite URL
+        run: echo "https://discord.com/oauth2/authorize?client_id=1571403390796439564&scope=applications.commands"
