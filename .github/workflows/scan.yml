@@ -1,7 +1,7 @@
 # 外部スキャナー（任意）
 # Cloudflare Workers から Discord へのリクエストがブロックされる場合や、
 # もっと速く回したい場合に、GitHub Actions の IP からスキャンする。
-# PROXY_SCAN=true（vars）なら、無料プロキシを並列で使って1本のIPより速く撃つ proxy-scan.js を使う。
+# 優先順位: GATEWAY_SCAN=true（有料ローテーティング住宅プロキシ） > PROXY_SCAN=true（無料プロキシ） > 単一IP
 # Secrets に SCAN_SECRET を設定すると動く（止めたいときは Variables に SCANNER_ENABLED=false）
 name: scan
 on:
@@ -10,7 +10,11 @@ on:
   workflow_dispatch:
     inputs:
       proxy_scan:
-        description: 'true でプロキシ並列スキャナーを使う（未指定なら Variables の PROXY_SCAN に従う）'
+        description: 'true で無料プロキシ並列スキャナーを使う（未指定なら Variables の PROXY_SCAN に従う）'
+        required: false
+        type: string
+      gateway_scan:
+        description: 'true で有料ローテーティング住宅プロキシ(ゲートウェイ)を使う（未指定なら Variables の GATEWAY_SCAN に従う）'
         required: false
         type: string
       duration_sec:
@@ -38,7 +42,10 @@ jobs:
       - name: scan
         run: |
           if [ -z "$SCAN_SECRET" ]; then echo 'SCAN_SECRET が未設定なのでスキップ'; exit 0; fi
-          if [ "$PROXY_SCAN" = "true" ]; then
+          if [ "$GATEWAY_SCAN" = "true" ]; then
+            if [ -z "$GATEWAY_LOGIN" ] || [ -z "$GATEWAY_PASSWORD" ]; then echo 'GATEWAY_LOGIN/GATEWAY_PASSWORD が未設定なのでスキップ'; exit 0; fi
+            node scripts/gateway-scan.js
+          elif [ "$PROXY_SCAN" = "true" ]; then
             node scripts/proxy-scan.js
           else
             node scripts/external-scan.js
@@ -51,3 +58,10 @@ jobs:
           PROXY_MAX_WORKERS: ${{ vars.PROXY_MAX_WORKERS }}
           PROXY_VALIDATE_CONCURRENCY: ${{ vars.PROXY_VALIDATE_CONCURRENCY }}
           PROXY_CANDIDATE_LIMIT: ${{ inputs.candidate_limit || vars.PROXY_CANDIDATE_LIMIT }}
+          GATEWAY_SCAN: ${{ inputs.gateway_scan || vars.GATEWAY_SCAN }}
+          GATEWAY_HOST: ${{ vars.GATEWAY_HOST }}
+          GATEWAY_PORT: ${{ vars.GATEWAY_PORT }}
+          GATEWAY_LOGIN: ${{ secrets.GATEWAY_LOGIN }}
+          GATEWAY_PASSWORD: ${{ secrets.GATEWAY_PASSWORD }}
+          GATEWAY_CONCURRENCY: ${{ vars.GATEWAY_CONCURRENCY }}
+          GATEWAY_REQUESTS_PER_SESSION: ${{ vars.GATEWAY_REQUESTS_PER_SESSION }}

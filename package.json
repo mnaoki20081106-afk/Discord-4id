@@ -12,6 +12,7 @@
     "register": "node scripts/register-commands.js",
     "scan:external": "node scripts/external-scan.js",
     "scan:proxy": "node scripts/proxy-scan.js",
+    "scan:gateway": "node scripts/gateway-scan.js",
     "test": "node --test --no-warnings test/*.test.js"
   },
   "dependencies": {
@@ -19,8 +20,5 @@
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
-  },
-  "dependencies": {
-    "undici": "^8.12.4"
   }
 }
