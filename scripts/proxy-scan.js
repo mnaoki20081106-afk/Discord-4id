@@ -142,7 +142,6 @@ async function validateProxies(candidates) {
 
 async function main() {
   const started = Date.now();
-  const deadline = started + durationMs;
 
   const allCandidates = await fetchProxyCandidates();
   console.log(`[proxy-scan] 候補合計: ${allCandidates.length}`);
@@ -160,6 +159,8 @@ async function main() {
   console.log(`[proxy-scan] 検証対象: ${candidates.length}/${allCandidates.length}`);
 
   let alive = await validateProxies(candidates);
+  // 検証にかかった時間はスキャン時間に食い込ませない。ここから duration_sec 分だけ撃つ
+  const deadline = Date.now() + durationMs;
   const spares = alive.splice(maxWorkers);
   const pool = alive;
   if (!pool.length) {
