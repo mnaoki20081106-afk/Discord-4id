@@ -61,6 +61,24 @@ npx wrangler secret put DISCORD_BOT_TOKEN
 `DISCORD_BOT_TOKEN` が未設定のまま `/channel` を実行すると、その旨の注意書きが返ります
 （設定自体はされるので、後から Bot トークンを設定すれば通知が動き出します）。
 
+## /scan コマンド（今すぐスキャン）
+
+サーバー管理者が `/scan` を実行すると、GitHub Actions の `scan` ワークフロー（後述の「GitHub Actions でスキャンする」）を
+その場で起動します。Cloudflare Workers 自身の IP からは Discord の確認APIが 403 で弾かれるため、
+Worker は起動を依頼するだけで、実際のチェックは常に GitHub Actions 側で行われます。
+応答は「起動した/失敗した」のお知らせのみで、スキャン自体の完了（数分〜1時間弱）は待ちません
+（進捗は `/id` や Worker の URL で確認してください）。
+
+使うには GitHub の Personal Access Token を Worker のシークレットに登録します:
+```bash
+npx wrangler secret put GITHUB_PAT
+```
+- GitHub の Settings → Developer settings → **Fine-grained personal access tokens** で発行
+- **Repository access** はこのリポジトリ（`discord-4id`）だけに絞る
+- **Permissions** は `Actions: Read and write` だけで十分
+
+`GITHUB_PAT` が未設定のまま `/scan` を実行すると、その旨の注意書きが返ります。
+
 ## セットアップ
 
 ### 1. Discord アプリを作る

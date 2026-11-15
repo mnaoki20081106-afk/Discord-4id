@@ -11,6 +11,27 @@ function authorized(request, env) {
 }
 
 /**
+ * GitHub Actions の scan ワークフローを workflow_dispatch で起動する。
+ * Worker (Cloudflare) 自身の IP からは Discord の確認APIが 403 で弾かれるため、
+ * 実際のスキャンは常に GitHub Actions 側の IP で行う前提。ここはそれを起動するだけ。
+ * GITHUB_PAT は対象リポジトリ限定・Actions:Read and write だけの fine-grained PAT を想定。
+ */
+async function triggerScanWorkflow(env) {
+  const repo = env.GITHUB_REPO || 'mnaoki20081106-afk/Discord-4id';
+  const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/scan.yml/dispatches`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_PAT}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'discord-4id-worker',
+    },
+    body: JSON.stringify({ ref: env.GITHUB_REF || 'main' }),
+  });
+  return res;
+}
+
+/**
  * 新しく見つかった名前を、/channel で設定したチャンネルに即時通知する。
  * urgent（全部アルファベット or 3文字ID）は @everyone 付きで別メッセージとして送る。
  */
@@ -62,6 +83,21 @@ async function handleInteraction(request, env, ctx) {
       type: ResponseType.CHANNEL_MESSAGE,
       data: { content: `✅ このチャンネルを、全部アルファベットの4文字ID発見通知の送り先に設定しました${warn}`, flags: EPHEMERAL },
     });
+  }
+
+  if (interaction.type === InteractionType.APPLICATION_COMMAND && interaction.data?.name === 'scan') {
+    if (!env.GITHUB_PAT) {
+      return json({
+        type: ResponseType.CHANNEL_MESSAGE,
+        data: { content: '⚠ GITHUB_PAT が未設定なのでスキャンを起動できません（`wrangler secret put GITHUB_PAT` が必要）。', flags: EPHEMERAL },
+      });
+    }
+    const res = await triggerScanWorkflow(env).catch((e) => ({ ok: false, status: 0, _err: String(e?.message || e) }));
+    const content =
+      res.status === 204
+        ? '🚀 スキャンを起動しました（GitHub Actions）。終わるまで数分〜1時間弱かかります。'
+        : `⚠ 起動に失敗しました（HTTP ${res.status}${res._err ? ` ${res._err}` : ''}）`;
+    return json({ type: ResponseType.CHANNEL_MESSAGE, data: { content, flags: EPHEMERAL } });
   }
 
   return json({ type: ResponseType.CHANNEL_MESSAGE, data: { content: '不明なコマンドです', flags: EPHEMERAL } });

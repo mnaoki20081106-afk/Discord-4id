@@ -122,3 +122,56 @@ test('外部スキャナー: 新規空きが見つかったら通知チャンネ
     globalThis.fetch = origFetch;
   }
 });
+
+test('/scan: GITHUB_PAT 未設定なら起動しない', async () => {
+  const { env, sign } = await setup();
+  const body = JSON.stringify({ type: 2, token: 't', guild_id: 'g1', data: { name: 'scan' } });
+  const res = await worker.fetch(await sign(body), env, ctx);
+  const j = await res.json();
+  assert.match(j.data.content, /GITHUB_PAT/);
+  assert.equal(j.data.flags, 1 << 6);
+});
+
+test('/scan: GitHub Actions の workflow_dispatch を正しい宛先で叩く', async () => {
+  const { env, sign } = await setup();
+  env.GITHUB_PAT = 'ghp_test';
+
+  const calls = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('api.github.com')) {
+      calls.push({ url: String(url), init });
+      return new Response(null, { status: 204 });
+    }
+    return origFetch(url, init);
+  };
+  try {
+    const body = JSON.stringify({ type: 2, token: 't', guild_id: 'g1', data: { name: 'scan' } });
+    const res = await worker.fetch(await sign(body), env, ctx);
+    const j = await res.json();
+    assert.match(j.data.content, /起動しました/);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://api.github.com/repos/mnaoki20081106-afk/Discord-4id/actions/workflows/scan.yml/dispatches');
+    assert.equal(calls[0].init.headers.Authorization, 'Bearer ghp_test');
+    assert.deepEqual(JSON.parse(calls[0].init.body), { ref: 'main' });
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test('/scan: GitHub側が失敗応答ならエラーを返す', async () => {
+  const { env, sign } = await setup();
+  env.GITHUB_PAT = 'ghp_test';
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) =>
+    String(url).includes('api.github.com') ? new Response('nope', { status: 403 }) : origFetch(url, init);
+  try {
+    const body = JSON.stringify({ type: 2, token: 't', guild_id: 'g1', data: { name: 'scan' } });
+    const res = await worker.fetch(await sign(body), env, ctx);
+    const j = await res.json();
+    assert.match(j.data.content, /失敗/);
+    assert.match(j.data.content, /403/);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});

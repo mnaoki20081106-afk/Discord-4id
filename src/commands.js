@@ -82,4 +82,11 @@ export const COMMANDS = [
     contexts: [0],
     default_member_permissions: '32', // MANAGE_GUILD。鯖管理者だけに絞る
   },
+  {
+    name: 'scan',
+    description: '今すぐスキャンを1回実行する（GitHub Actions を起動。終了まで待たずに受け付けたことだけ返します）',
+    integration_types: [0],
+    contexts: [0],
+    default_member_permissions: '32', // MANAGE_GUILD。鯖管理者だけに絞る
+  },
 ];
