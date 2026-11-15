@@ -9,7 +9,7 @@ crons = ["* * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "discord-4id"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "8e599b34-1a73-40db-a1a6-db57f0e36ad0"
 
 [vars]
 # スキャン対象の文字数（この順に優先して1周ずつ回る）
