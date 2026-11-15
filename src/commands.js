@@ -75,4 +75,11 @@ export const COMMANDS = [
       { type: 5, name: 'hidden', description: '自分だけに表示する', required: false },
     ],
   },
+  {
+    name: 'channel',
+    description: '全部アルファベット（数字/記号なし）の4文字IDが見つかった時の通知先に、このチャンネルを設定',
+    integration_types: [0],
+    contexts: [0],
+    default_member_permissions: '32', // MANAGE_GUILD。鯖管理者だけに絞る
+  },
 ];

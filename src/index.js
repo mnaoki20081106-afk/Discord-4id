@@ -1,13 +1,26 @@
 import { buildIdMessage, buildStats, getOptions } from './commands.js';
 import { loadConfig } from './config.js';
-import { EPHEMERAL, InteractionType, ResponseType, json, verifyDiscordRequest } from './discord.js';
+import { EPHEMERAL, InteractionType, ResponseType, json, sendChannelMessage, verifyDiscordRequest } from './discord.js';
 import { isValidUsername } from './generator.js';
 import { buildQueue, runScan } from './scanner.js';
-import { applyResults } from './store.js';
+import { applyResults, getState, setState } from './store.js';
 
 function authorized(request, env) {
   const auth = request.headers.get('authorization') || '';
   return Boolean(env.SCAN_SECRET) && auth === `Bearer ${env.SCAN_SECRET}`;
+}
+
+/** 新しく見つかった全部アルファベットの名前を、/channel で設定したチャンネルに即時通知する */
+function makeNotifier(env) {
+  return async (names) => {
+    if (!env.DISCORD_BOT_TOKEN || !names?.length) return;
+    const state = await getState(env.DB);
+    const channelId = state.notify_channel_id;
+    if (!channelId) return;
+    const list = names.map((n) => `\`${n}\``).join(', ');
+    const content = `🔤 全部アルファベットの4文字ID発見: ${list}`;
+    await sendChannelMessage(env.DISCORD_BOT_TOKEN, channelId, content);
+  };
 }
 
 async function handleInteraction(request, env, ctx) {
@@ -24,6 +37,20 @@ async function handleInteraction(request, env, ctx) {
 
     const msg = await buildIdMessage(env.DB, cfg, opts);
     return json({ type: ResponseType.CHANNEL_MESSAGE, data: { ...msg, flags } });
+  }
+
+  if (interaction.type === InteractionType.APPLICATION_COMMAND && interaction.data?.name === 'channel') {
+    if (!interaction.guild_id || !interaction.channel_id) {
+      return json({ type: ResponseType.CHANNEL_MESSAGE, data: { content: 'サーバー内のチャンネルでだけ使えます', flags: EPHEMERAL } });
+    }
+    await setState(env.DB, { notify_channel_id: interaction.channel_id, notify_guild_id: interaction.guild_id });
+    const warn = env.DISCORD_BOT_TOKEN
+      ? ''
+      : '\n⚠ DISCORD_BOT_TOKEN が未設定なので、実際の通知はまだ送れません（`wrangler secret put DISCORD_BOT_TOKEN` が必要）。';
+    return json({
+      type: ResponseType.CHANNEL_MESSAGE,
+      data: { content: `✅ このチャンネルを、全部アルファベットの4文字ID発見通知の送り先に設定しました${warn}`, flags: EPHEMERAL },
+    });
   }
 
   return json({ type: ResponseType.CHANNEL_MESSAGE, data: { content: '不明なコマンドです', flags: EPHEMERAL } });
@@ -59,7 +86,8 @@ async function handleReport(request, env) {
   const extra = {};
   if (results.length) extra.last_ok_at = now;
   if (typeof payload.error === 'string' && payload.error) extra.last_error = `${new Date(now).toISOString()} [external] ${payload.error}`.slice(0, 300);
-  await applyResults(env.DB, results, now, extra);
+  const { newlyAvailable } = await applyResults(env.DB, results, now, extra);
+  if (newlyAvailable.length) await makeNotifier(env)(newlyAvailable).catch((e) => console.error('[notify] failed', e));
   return json({ ok: true, accepted: results.length });
 }
 
@@ -86,6 +114,6 @@ export default {
   async scheduled(_event, env, ctx) {
     const cfg = loadConfig(env);
     if (cfg.mode !== 'worker') return;
-    ctx.waitUntil(runScan(env.DB, cfg).then((r) => console.log(JSON.stringify(r))));
+    ctx.waitUntil(runScan(env.DB, cfg, { notify: makeNotifier(env) }).then((r) => console.log(JSON.stringify(r))));
   },
 };

@@ -41,6 +41,24 @@ Discord の **3文字・4文字ユーザー名の空き** を総当りで探し�
 
 返信には各 ID の最終確認時刻（取られたものは取られた時刻）と、スキャンの進捗・リストの件数が表示されます。
 
+## /channel コマンド（即時通知）
+
+**全部アルファベット（数字・`_`・`.` を含まない）の4文字 ID** が新しく空きになった瞬間、
+`/channel` を実行したチャンネルに自動で通知します（定期的な再確認で再び空きになった場合も通知します）。
+サーバー管理者（`MANAGE_GUILD` 権限）だけが実行できます。
+
+通知を実際に送るには、Bot トークンを Worker のシークレットに登録する必要があります
+（コマンド登録専用だった従来の Bot トークンを、能動的にメッセージを送るためにも使います）:
+```bash
+npx wrangler secret put DISCORD_BOT_TOKEN
+```
+**加えて**、Discord Developer Portal の **Installation** で招待リンクに `bot` スコープ（`Send Messages` 権限）
+を含めて作り直し、サーバーに **再招待** してください。`applications.commands` スコープだけでは
+スラッシュコマンドへの応答はできても、こちらから能動的にチャンネルへメッセージを送ることはできません。
+
+`DISCORD_BOT_TOKEN` が未設定のまま `/channel` を実行すると、その旨の注意書きが返ります
+（設定自体はされるので、後から Bot トークンを設定すれば通知が動き出します）。
+
 ## セットアップ
 
 ### 1. Discord アプリを作る
@@ -67,7 +85,8 @@ npm run deploy                           # https://discord-4id.<you>.workers.dev
    DISCORD_APPLICATION_ID=xxx DISCORD_BOT_TOKEN=xxx npm run register
    # すぐ試したいときは DISCORD_GUILD_ID=サーバーID も付ける（ギルドコマンドは即反映）
    ```
-3. **Installation** で招待リンクを作り（スコープ `applications.commands`）、サーバーに追加
+3. **Installation** で招待リンクを作り（スコープ `applications.commands`。`/channel` の即時通知も使うなら
+   `bot` スコープと `Send Messages` 権限も追加）、サーバーに追加
 4. `/id` を実行。Worker の URL をブラウザで開いても進捗が見られます。
 
 ## このリポジトリのデプロイ先

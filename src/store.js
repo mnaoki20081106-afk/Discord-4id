@@ -40,16 +40,32 @@ export async function dueRechecks(db, { availableOlderThan, takenOlderThan }, li
   return results || [];
 }
 
+// 数字・_・. を含まない、a-z だけの名前（「全部アルファベット」の通知対象）
+const ALL_LETTERS_RE = /^[a-z]+$/;
+
 /**
  * 確認結果を保存する。results: [{name, len, taken, seq?}]
  * - 空き → リストに追加 / 「使える」に更新
  * - 取られている → リストにあれば「使えない」に更新（リストにない名前は保存しない）
  * seq 付きの結果があればその文字数のカーソルを進める。
+ *
+ * @returns {Promise<{newlyAvailable: string[]}>} 今回のバッチで新しく「使える」になった、
+ *   全部アルファベットの名前（即時通知の対象。既に使える状態だったものは含まない）
  */
 export async function applyResults(db, results, now, extraState = {}) {
   const state = await getState(db);
   const stmts = [];
   const maxSeq = {};
+
+  const availableNames = [...new Set(results.filter((r) => !r.taken).map((r) => r.name))];
+  const prevStatus = new Map();
+  if (availableNames.length) {
+    const placeholders = availableNames.map(() => '?').join(',');
+    const { results: rows } = await db.prepare(`SELECT name, status FROM found WHERE name IN (${placeholders})`).bind(...availableNames).all();
+    for (const row of rows || []) prevStatus.set(row.name, row.status);
+  }
+  const newlyAvailable = new Set();
+
   for (const r of results) {
     const status = r.taken ? 'taken' : 'available';
     if (r.taken) {
@@ -74,6 +90,7 @@ export async function applyResults(db, results, now, extraState = {}) {
           )
           .bind(r.name, r.len, status, now),
       );
+      if (prevStatus.get(r.name) !== 'available' && ALL_LETTERS_RE.test(r.name)) newlyAvailable.add(r.name);
     }
     if (Number.isInteger(r.seq)) maxSeq[r.len] = Math.max(maxSeq[r.len] ?? -1, r.seq);
   }
@@ -84,6 +101,8 @@ export async function applyResults(db, results, now, extraState = {}) {
   stmts.push(setStateStmt(db, 'checked_total', checked));
   for (const [k, v] of Object.entries(extraState)) stmts.push(setStateStmt(db, k, v));
   await db.batch(stmts);
+
+  return { newlyAvailable: [...newlyAvailable] };
 }
 
 /** status: 'available' | 'taken' | null(すべて) */

@@ -45,3 +45,17 @@ export async function editOriginal(applicationId, token, data, fetchImpl = fetch
     body: JSON.stringify(data),
   });
 }
+
+/**
+ * Bot トークンでチャンネルに能動的にメッセージを送る（即時通知用）。
+ * インタラクションへの応答と違い、Botをそのサーバーに `bot` スコープで招待していないと送れない。
+ */
+export async function sendChannelMessage(botToken, channelId, content, fetchImpl = fetch) {
+  const res = await fetchImpl(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bot ${botToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+  });
+  if (!res.ok) console.error(`[notify] ${res.status} ${await res.text()}`);
+  return res;
+}

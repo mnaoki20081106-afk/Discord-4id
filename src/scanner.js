@@ -34,8 +34,9 @@ export async function buildQueue(db, cfg, limit, now) {
   return { state, queue: [...rechecks.map((r) => ({ name: r.name, len: r.len })), ...plan.items] };
 }
 
-/** Worker の cron から呼ばれるスキャン本体 */
-export async function runScan(db, cfg, { fetchImpl = fetch, sleep = sleepDefault, now = Date.now } = {}) {
+/** Worker の cron から呼ばれるスキャン本体。notify(names) が渡されていれば、新しく見つかった
+ *  全部アルファベットの名前をそのまま渡す（呼び出し側でDiscordへの通知を行う） */
+export async function runScan(db, cfg, { fetchImpl = fetch, sleep = sleepDefault, now = Date.now, notify } = {}) {
   const start = now();
   const state = await getState(db);
   const cooldown = Number(state.cooldown_until || 0);
@@ -63,6 +64,7 @@ export async function runScan(db, cfg, { fetchImpl = fetch, sleep = sleepDefault
     results.push({ ...item, taken: r.status === 'taken' });
   }
   if (results.length) extra.last_ok_at = now();
-  await applyResults(db, results, now(), extra);
-  return { checked: results.length, available: results.filter((r) => !r.taken).map((r) => r.name), ...extra };
+  const { newlyAvailable } = await applyResults(db, results, now(), extra);
+  if (notify && newlyAvailable.length) await notify(newlyAvailable).catch((e) => console.error('[notify] failed', e));
+  return { checked: results.length, available: results.filter((r) => !r.taken).map((r) => r.name), newlyAvailable, ...extra };
 }

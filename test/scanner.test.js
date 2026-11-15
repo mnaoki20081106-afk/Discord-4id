@@ -81,6 +81,36 @@ test('3,4 を指定すると 3文字を1周してから4文字へ', async () => 
   assert.ok(Number((await getState(db))['seq:4']) >= 20);
 });
 
+test('applyResults: 新規に空きになった全部アルファベットの名前だけを通知対象として返す', async () => {
+  const db = createFakeD1();
+  // 初回: 全部アルファベット(abcd)と、数字入り(ab12)が同時に空き
+  let { newlyAvailable } = await applyResults(db, [{ name: 'abcd', len: 4, taken: false }, { name: 'ab12', len: 4, taken: false }], 1000);
+  assert.deepEqual(newlyAvailable, ['abcd']); // 数字入りは対象外
+
+  // 同じ名前が再確認でまだ空きのままでも、二重通知しない
+  ({ newlyAvailable } = await applyResults(db, [{ name: 'abcd', len: 4, taken: false }], 2000));
+  assert.deepEqual(newlyAvailable, []);
+
+  // 取られて → また空き直したら、再度通知対象になる
+  await applyResults(db, [{ name: 'abcd', len: 4, taken: true }], 3000);
+  ({ newlyAvailable } = await applyResults(db, [{ name: 'abcd', len: 4, taken: false }], 4000));
+  assert.deepEqual(newlyAvailable, ['abcd']);
+});
+
+test('runScan: 新規に空きになった全部アルファベットの名前があれば notify を呼ぶ', async () => {
+  const db = createFakeD1();
+  const target = new Set([seqToName(3, 4, cfg.charset), seqToName(10, 4, cfg.charset)]);
+  const notified = [];
+  const r = await runScan(db, cfg, {
+    fetchImpl: mockDiscord({ available: target }),
+    sleep: noSleep,
+    notify: async (names) => notified.push(...names),
+  });
+  assert.equal(r.checked, 20);
+  const expectAllLetters = [...target].filter((n) => /^[a-z]+$/.test(n));
+  assert.deepEqual(new Set(notified), new Set(expectAllLetters));
+});
+
 test('/id: 使える / 使えない / すべて', async () => {
   const db = createFakeD1();
   await applyResults(db, [{ name: 'ab_1', len: 4, taken: false }, { name: 'xy.z', len: 4, taken: false }], 1000);

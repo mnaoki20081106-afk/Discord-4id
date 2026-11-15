@@ -61,3 +61,56 @@ test('外部スキャナー API', async () => {
   const b2 = await (await worker.fetch(new Request('https://w.example/api/batch?limit=5', { headers: auth }), env, ctx)).json();
   assert.notEqual(b2.items[0].name, b.items[0].name); // カーソルが進んでいる
 });
+
+test('/channel: 通知先チャンネルを設定し、DISCORD_BOT_TOKEN 未設定なら注意書きが出る', async () => {
+  const { env, sign } = await setup();
+  const body = JSON.stringify({ type: 2, token: 't', guild_id: 'g1', channel_id: 'c1', data: { name: 'channel' } });
+  const res = await worker.fetch(await sign(body), env, ctx);
+  const j = await res.json();
+  assert.equal(j.data.flags, 1 << 6);
+  assert.match(j.data.content, /設定しました/);
+  assert.match(j.data.content, /DISCORD_BOT_TOKEN/);
+
+  const { getState } = await import('../src/store.js');
+  const state = await getState(env.DB);
+  assert.equal(state.notify_channel_id, 'c1');
+});
+
+test('/channel: サーバー外では使えない', async () => {
+  const { env, sign } = await setup();
+  const body = JSON.stringify({ type: 2, token: 't', data: { name: 'channel' } }); // guild_id なし
+  const res = await worker.fetch(await sign(body), env, ctx);
+  const j = await res.json();
+  assert.match(j.data.content, /サーバー内/);
+});
+
+test('外部スキャナー: 全部アルファベットの新規空きが見つかったら通知チャンネルに送る', async () => {
+  const { env } = await setup();
+  const { setState } = await import('../src/store.js');
+  await setState(env.DB, { notify_channel_id: 'c1' });
+  env.DISCORD_BOT_TOKEN = 'bot-token';
+
+  const sentTo = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/channels/c1/messages')) {
+      sentTo.push(JSON.parse(init.body));
+      return new Response('{}', { status: 200 });
+    }
+    return origFetch(url, init);
+  };
+  try {
+    const auth = { authorization: 'Bearer s3cret' };
+    const results = [{ name: 'abcd', len: 4, taken: false }]; // 全部アルファベット
+    const res = await worker.fetch(
+      new Request('https://w.example/api/report', { method: 'POST', headers: auth, body: JSON.stringify({ results }) }),
+      env,
+      ctx,
+    );
+    assert.equal((await res.json()).accepted, 1);
+    assert.equal(sentTo.length, 1);
+    assert.match(sentTo[0].content, /abcd/);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
