@@ -88,10 +88,13 @@ export async function fetchProxyCandidates(sources = DEFAULT_PROXY_SOURCES, { fe
   return [...out.values()];
 }
 
-/** 指定プロキシ経由で fetch するラッパーを作る（checker.checkUsername の fetchImpl にそのまま渡せる） */
+/**
+ * 指定プロキシ経由で fetch するラッパーを作る（checker.checkUsername の fetchImpl にそのまま渡せる）。
+ * 返す関数に `.close()` が生えていて、使い終わったプロキシのソケット/エージェントを解放できる。
+ */
 export function makeProxyFetch(proxy, { requestTimeoutMs = 8000 } = {}) {
   const agent = new ProxyAgent({ uri: proxyKey(proxy), proxyTls: { rejectUnauthorized: false }, requestTls: { rejectUnauthorized: false } });
-  return async (url, opts = {}) => {
+  const fn = async (url, opts = {}) => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), requestTimeoutMs);
     try {
@@ -100,6 +103,26 @@ export function makeProxyFetch(proxy, { requestTimeoutMs = 8000 } = {}) {
       clearTimeout(timer);
     }
   };
+  fn.close = () => agent.close().catch(() => agent.destroy().catch(() => {}));
+  return fn;
+}
+
+/** 配列処理に締切を付ける。締切が来たら今ある結果をそのまま返す（はみ出た分の完了は待たない） */
+export async function withDeadline(promise, deadlineMs, onTimeout) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ timedOut: true }), deadlineMs);
+  });
+  try {
+    const result = await Promise.race([promise.then((v) => ({ timedOut: false, v })), timeout]);
+    if (result.timedOut) {
+      onTimeout?.();
+      return null;
+    }
+    return result.v;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** 配列を limit 並列で処理する簡易ワーカープール */

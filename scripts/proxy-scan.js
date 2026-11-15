@@ -3,7 +3,7 @@
 // という前提で、生きてるプロキシの本数だけ同時並行で撃つ。各ワーカーは自分の429/retry_afterにだけ従う。
 //   WORKER_URL=https://xxx.workers.dev SCAN_SECRET=... node scripts/proxy-scan.js
 import { checkUsername, paceMs } from '../src/checker.js';
-import { fetchProxyCandidates, makeProxyFetch, mapLimit, proxyKey } from '../src/proxy-pool.js';
+import { fetchProxyCandidates, makeProxyFetch, mapLimit, proxyKey, withDeadline } from '../src/proxy-pool.js';
 
 const base = (process.env.WORKER_URL || '').replace(/\/$/, '');
 const secret = process.env.SCAN_SECRET;
@@ -15,6 +15,8 @@ if (!base || !secret) {
 const durationMs = Number(process.env.SCAN_DURATION_SEC || 270) * 1000;
 const validateConcurrency = Number(process.env.PROXY_VALIDATE_CONCURRENCY || 250);
 const candidateLimit = Number(process.env.PROXY_CANDIDATE_LIMIT || 6000); // ソース合計が数万〜十数万になるので検証前に間引く
+const validateTimeoutMs = Number(process.env.PROXY_VALIDATE_TIMEOUT_MS || 4000); // 1本あたりの到達性チェック
+const validateDeadlineMs = Number(process.env.PROXY_VALIDATE_DEADLINE_MS || 150000); // 検証フェーズ全体の上限（止まったプロキシでハングしても打ち切る）
 const maxWorkers = Number(process.env.PROXY_MAX_WORKERS || 150);
 const minDelayMs = Number(process.env.SCAN_MIN_DELAY_MS || 400);
 const probeName = process.env.PROXY_PROBE_NAME || 'discord'; // 既に取られている名前。JSONが返れば抜けてる証拠
@@ -88,25 +90,39 @@ function makeReporter() {
 }
 
 async function validateProxies(candidates) {
-  console.log(`[proxy-scan] ${candidates.length}件の候補をDiscord相手に検証中...`);
+  console.log(`[proxy-scan] ${candidates.length}件の候補をDiscord相手に検証中...（最大${(validateDeadlineMs / 1000).toFixed(0)}秒）`);
   const alive = [];
   const errorTally = new Map();
+  let checked = 0;
   let shown = 0;
-  await mapLimit(candidates, validateConcurrency, async (p) => {
-    const fx = makeProxyFetch(p, { requestTimeoutMs: 6000 });
-    const r = await checkUsername(probeName, { fetchImpl: fx }).catch((e) => ({ status: 'error', message: String(e?.message || e) }));
-    if (r.status === 'taken' || r.status === 'available' || r.status === 'ratelimited') {
-      alive.push(p);
-    } else {
-      const key = r.status === 'error' ? `${r.code ?? '-'} ${String(r.message || '').split('\n')[0].slice(0, 80)}` : r.status;
-      errorTally.set(key, (errorTally.get(key) || 0) + 1);
-      if (process.env.PROXY_DEBUG === 'true' && shown < 20) {
-        shown++;
-        console.log(`[proxy-debug] ${proxyKey(p)} -> ${key}`);
+
+  const work = mapLimit(candidates, validateConcurrency, async (p) => {
+    const fx = makeProxyFetch(p, { requestTimeoutMs: validateTimeoutMs });
+    try {
+      const r = await checkUsername(probeName, { fetchImpl: fx }).catch((e) => ({ status: 'error', message: String(e?.message || e) }));
+      checked++;
+      if (r.status === 'taken' || r.status === 'available' || r.status === 'ratelimited') {
+        alive.push(p);
+      } else {
+        const key = r.status === 'error' ? `${r.code ?? '-'} ${String(r.message || '').split('\n')[0].slice(0, 80)}` : r.status;
+        errorTally.set(key, (errorTally.get(key) || 0) + 1);
+        if (process.env.PROXY_DEBUG === 'true' && shown < 20) {
+          shown++;
+          console.log(`[proxy-debug] ${proxyKey(p)} -> ${key}`);
+        }
       }
+    } finally {
+      fx.close();
     }
   });
-  console.log(`[proxy-scan] 生存: ${alive.length}/${candidates.length}`);
+
+  // 止まったプロキシが abort を無視してハングするケースへの保険。
+  // 締切が来たら今の alive をそのまま使う（中断中のチェックは裏で終わるに任せる）
+  await withDeadline(work, validateDeadlineMs, () =>
+    console.log(`[proxy-scan] 検証が${(validateDeadlineMs / 1000).toFixed(0)}秒で打ち切り（${checked}/${candidates.length}件完了時点）`),
+  );
+
+  console.log(`[proxy-scan] 生存: ${alive.length}/${checked}件チェック済み（候補${candidates.length}件）`);
   if (!alive.length || process.env.PROXY_DEBUG === 'true') {
     const top = [...errorTally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
     for (const [reason, count] of top) console.log(`[proxy-scan] 失敗理由: ${reason} x${count}`);
@@ -152,6 +168,14 @@ async function main() {
 
   async function runWorker(proxy) {
     const fetchImpl = makeProxyFetch(proxy);
+    try {
+      await runWorkerLoop(proxy, fetchImpl);
+    } finally {
+      fetchImpl.close();
+    }
+  }
+
+  async function runWorkerLoop(proxy, fetchImpl) {
     let fails = 0;
     while (Date.now() < deadline) {
       await queue.ensure(pool.length * 2);
@@ -214,6 +238,8 @@ async function main() {
     `done. checked=${total} in ${mins.toFixed(1)}min (${(total / Math.max(mins, 0.01)).toFixed(1)}/min) ` +
       `429s=${limited} dead_proxies=${deadWorkers} found=${found.length} ${found.join(', ')}`,
   );
+  // ProxyAgent のソケットが残ってイベントループが閉じない場合があるので明示的に終了する
+  process.exit(0);
 }
 
 main().catch((e) => {
