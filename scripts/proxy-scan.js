@@ -13,6 +13,7 @@ if (!base || !secret) {
 }
 
 const durationMs = Number(process.env.SCAN_DURATION_SEC || 270) * 1000;
+const heartbeatMs = Number(process.env.PROXY_HEARTBEAT_MS || 10000);
 const validateConcurrency = Number(process.env.PROXY_VALIDATE_CONCURRENCY || 250);
 const candidateLimit = Number(process.env.PROXY_CANDIDATE_LIMIT || 6000); // ソース合計が数万〜十数万になるので検証前に間引く
 const validateTimeoutMs = Number(process.env.PROXY_VALIDATE_TIMEOUT_MS || 4000); // 1本あたりの到達性チェック
@@ -26,6 +27,13 @@ const maxFailsPerProxy = Number(process.env.PROXY_MAX_FAILS || 3);
 
 const headers = { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// どこかで何かがハング（abortが効かないソケット等）しても絶対に終わらせるための最終防衛線
+const watchdogMs = validateDeadlineMs + durationMs + 120000;
+setTimeout(() => {
+  console.error(`[proxy-scan] watchdog: ${(watchdogMs / 1000).toFixed(0)}秒経っても終わらないので強制終了`);
+  process.exit(1);
+}, watchdogMs);
 
 const fmtRate = (r) =>
   r ? `limit=${r.limit} remaining=${r.remaining} reset_after=${r.resetAfter}s scope=${r.scope ?? '-'}` : '-';
@@ -95,6 +103,7 @@ async function validateProxies(candidates) {
   const errorTally = new Map();
   let checked = 0;
   let shown = 0;
+  const hb = setInterval(() => console.log(`[proxy-scan] heartbeat: 検証 ${checked}/${candidates.length}件完了, alive=${alive.length}`), heartbeatMs);
 
   const work = mapLimit(candidates, validateConcurrency, async (p) => {
     const fx = makeProxyFetch(p, { requestTimeoutMs: validateTimeoutMs });
@@ -121,6 +130,7 @@ async function validateProxies(candidates) {
   await withDeadline(work, validateDeadlineMs, () =>
     console.log(`[proxy-scan] 検証が${(validateDeadlineMs / 1000).toFixed(0)}秒で打ち切り（${checked}/${candidates.length}件完了時点）`),
   );
+  clearInterval(hb);
 
   console.log(`[proxy-scan] 生存: ${alive.length}/${checked}件チェック済み（候補${candidates.length}件）`);
   if (!alive.length || process.env.PROXY_DEBUG === 'true') {
@@ -227,8 +237,14 @@ async function main() {
   }
   for (const proxy of pool) spawn(proxy);
 
+  const scanHb = setInterval(
+    () => console.log(`[proxy-scan] heartbeat: checked=${total} workers=${running.size} 残り${Math.max(0, Math.round((deadline - Date.now()) / 1000))}秒`),
+    heartbeatMs,
+  );
   while (running.size && Date.now() < deadline) await sleep(1000);
-  await Promise.allSettled([...running]);
+  clearInterval(scanHb);
+  // abort が効かない壊れたプロキシに引っ張られて終わらない場合があるので、ここにも締切を付ける
+  await withDeadline(Promise.allSettled([...running]), 20000, () => console.log(`[proxy-scan] ${running.size}本が終わり切らないので打ち切って終了処理に進む`));
 
   clearInterval(flushTimer);
   await reporter.flush();

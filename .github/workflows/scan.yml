@@ -17,6 +17,10 @@ on:
         description: '実行時間（秒）。手動テスト用に短くできる'
         required: false
         type: string
+      candidate_limit:
+        description: 'proxy-scan: 検証にかける候補数上限（手動テスト用に小さくできる）'
+        required: false
+        type: string
 concurrency:
   group: scan
   cancel-in-progress: false
@@ -46,3 +50,4 @@ jobs:
           PROXY_SCAN: ${{ inputs.proxy_scan || vars.PROXY_SCAN }}
           PROXY_MAX_WORKERS: ${{ vars.PROXY_MAX_WORKERS }}
           PROXY_VALIDATE_CONCURRENCY: ${{ vars.PROXY_VALIDATE_CONCURRENCY }}
+          PROXY_CANDIDATE_LIMIT: ${{ inputs.candidate_limit || vars.PROXY_CANDIDATE_LIMIT }}
