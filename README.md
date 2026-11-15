@@ -69,6 +69,13 @@ npm run deploy                           # https://discord-4id.<you>.workers.dev
 3. **Installation** で招待リンクを作り（スコープ `applications.commands`）、サーバーに追加
 4. `/id` を実行。Worker の URL をブラウザで開いても進捗が見られます。
 
+## このリポジトリのデプロイ先
+
+- Worker: <https://discord-4id.c53gftun651-tiktok.workers.dev/>（ブラウザで開くと進捗が見られます）
+- D1: `discord-4id`
+- Discord Application ID: `1571403390796439564`
+- Discord 側の設定は `.github/workflows/setup-discord.yml`（Secrets に `DISCORD_BOT_TOKEN` を入れて手動実行）
+
 ## GitHub Actions でスキャンする（任意）
 
 Cloudflare Workers から Discord への確認リクエストがブロックされる場合（`/id` に `HTTP 403` などのエラーが出る）は、
