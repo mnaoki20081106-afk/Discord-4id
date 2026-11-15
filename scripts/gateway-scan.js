@@ -21,8 +21,8 @@ if (!base || !secret || !gwLogin || !gwPassword) {
 
 const durationMs = Number(process.env.SCAN_DURATION_SEC || 270) * 1000;
 const heartbeatMs = Number(process.env.PROXY_HEARTBEAT_MS || 10000);
-const concurrency = Number(process.env.GATEWAY_CONCURRENCY || 15); // 同時に使うセッション(住宅IP)の本数
-const requestsPerSession = Number(process.env.GATEWAY_REQUESTS_PER_SESSION || 12); // 429を待たずに切るまでの回数
+const concurrency = Number(process.env.GATEWAY_CONCURRENCY || 100); // 同時に使うセッション(住宅IP)の本数
+const requestsPerSession = Number(process.env.GATEWAY_REQUESTS_PER_SESSION || 10); // 429を待たずに切るまでの回数
 const requestTimeoutMs = Number(process.env.GATEWAY_REQUEST_TIMEOUT_MS || 8000);
 const minDelayMs = Number(process.env.SCAN_MIN_DELAY_MS || 300);
 const batchFetchSize = Number(process.env.SCAN_BATCH_FETCH || 500);

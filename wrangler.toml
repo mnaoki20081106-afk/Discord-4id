@@ -12,8 +12,8 @@ database_name = "discord-4id"
 database_id = "8e599b34-1a73-40db-a1a6-db57f0e36ad0"
 
 [vars]
-# スキャン対象の文字数（この順に優先して1周ずつ回る）
-SCAN_LENGTHS = "4"
+# スキャン対象の文字数（同じ周回数なら先に書いた方を優先。3文字は54,872通りと母数が少ないので先に狙う）
+SCAN_LENGTHS = "3,4"
 # Discord ユーザー名で使える文字（英小文字・数字・_ ・.）
 CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789_."
 # 1回の cron で確認する件数（無料プランのサブリクエスト上限 50 未満にする）
