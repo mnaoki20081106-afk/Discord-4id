@@ -1,0 +1,20 @@
+# スラッシュコマンド（/id, /channel など）を Discord に登録する。
+# パソコンが無くても、GitHub上でこのワークフローを手動実行(workflow_dispatch)するだけで登録できる。
+# Secrets に DISCORD_BOT_TOKEN を設定しておくこと（Cloudflare側のシークレットとは別物、GitHub用に別途必要）。
+name: register-commands
+on:
+  workflow_dispatch:
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run register
+        env:
+          DISCORD_APPLICATION_ID: ${{ vars.DISCORD_APPLICATION_ID || '1571403390796439564' }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_GUILD_ID: ${{ vars.DISCORD_GUILD_ID }}
