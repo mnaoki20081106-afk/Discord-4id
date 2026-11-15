@@ -1,7 +1,7 @@
 # 外部スキャナー（任意）
 # Cloudflare Workers から Discord へのリクエストがブロックされる場合や、
 # もっと速く回したい場合に、GitHub Actions の IP からスキャンする。
-# 使うには: リポジトリ Variables に SCANNER_ENABLED=true と WORKER_URL、Secrets に SCAN_SECRET を設定
+# Secrets に SCAN_SECRET を設定すると動く（止めたいときは Variables に SCANNER_ENABLED=false）
 name: scan
 on:
   schedule:
@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   scan:
-    if: vars.SCANNER_ENABLED == 'true'
+    if: vars.SCANNER_ENABLED != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -20,8 +20,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/external-scan.js
+      - name: scan
+        run: |
+          if [ -z "$SCAN_SECRET" ]; then echo 'SCAN_SECRET が未設定なのでスキップ'; exit 0; fi
+          node scripts/external-scan.js
         env:
-          WORKER_URL: ${{ vars.WORKER_URL }}
+          WORKER_URL: ${{ vars.WORKER_URL || 'https://discord-4id.c53gftun651-tiktok.workers.dev' }}
           SCAN_SECRET: ${{ secrets.SCAN_SECRET }}
           SCAN_DURATION_SEC: '480'

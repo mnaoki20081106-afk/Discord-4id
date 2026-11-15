@@ -23,7 +23,7 @@ SCAN_DELAY_MS = "700"
 # 「空き」と判定した名前を再確認する間隔(時間)
 RECHECK_HOURS = "12"
 # "worker" = Cloudflare の cron でスキャン / "external" = GitHub Actions などからスキャン
-SCAN_MODE = "worker"
+SCAN_MODE = "external"  # Cloudflare からの確認は Discord に 403 で拒否されたため GitHub Actions でスキャン
 
 # シークレット（wrangler secret put で設定）:
 #   DISCORD_PUBLIC_KEY   … Developer Portal の Public Key
