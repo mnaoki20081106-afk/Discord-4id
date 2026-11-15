@@ -11,9 +11,16 @@
     "db:init:local": "wrangler d1 execute discord-4id --local --file=./schema.sql",
     "register": "node scripts/register-commands.js",
     "scan:external": "node scripts/external-scan.js",
+    "scan:proxy": "node scripts/proxy-scan.js",
     "test": "node --test --no-warnings test/*.test.js"
+  },
+  "dependencies": {
+    "undici": "^8.12.4"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "undici": "^8.12.4"
   }
 }

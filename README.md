@@ -93,6 +93,45 @@ GitHub Actions からスキャンできます。public リポジトリなら Act
 
 ローカル PC から回す場合: `WORKER_URL=... SCAN_SECRET=... npm run scan:external`
 
+## プロキシ並列スキャン（`scripts/proxy-scan.js`）
+
+確認APIのレート制限は **IPごと**（実測で1IPあたり約20件→約36分クールダウン）。
+`external-scan.js` は1本のIP（GitHub Actionsランナー）で直列に回すので頭打りになる。
+`proxy-scan.js` は無料プロキシリストを複数ソースから集め、実際にDiscordまで抜けるものだけを選別し、
+**生きてるプロキシの本数だけ並列**で確認APIを叩く（＝IPを増やしてレート制限バケットを水平に増やす）。
+
+- 集めるソース: xyzs996/free-proxy-health-list, monosans/proxy-list, proxifly/free-proxy-list,
+  ProxyScrape API, maximilianfeix/free-proxy-list, databay-labs/free-proxy-list（`src/proxy-pool.js`）
+- SOCKS5はundiciの`ProxyAgent`が対応しないため除外、HTTP/HTTPSプロキシのみ使用
+- 起動時に確認APIへの到達性をまとめて検証し（既知の取得済み名前 `discord` を投げてJSONが返るか）、
+  通ったものだけをワーカープールにする。落ちたプロキシ（403・タイムアウト・接続エラーが続く）は即座に切り離し、
+  予備プロキシに差し替える
+- 各ワーカーは自分が受け取ったレート制限ヘッダー（`x-ratelimit-*`）だけを見てペースを決める。429が来たら
+  そのプロキシだけ`retry_after`待つ（他のプロキシは止まらない）
+- 名前の供給・結果報告は既存の `/api/batch` `/api/report` をそのまま使う（seqの整合性はWorker側で管理）
+
+```bash
+WORKER_URL=... SCAN_SECRET=... npm run scan:proxy
+```
+
+環境変数（任意）:
+
+| 変数 | 既定 | 説明 |
+|---|---|---|
+| `SCAN_DURATION_SEC` | `270` | 実行時間（秒） |
+| `PROXY_MAX_WORKERS` | `150` | 同時に使うプロキシ本数の上限 |
+| `PROXY_VALIDATE_CONCURRENCY` | `80` | 到達性チェックの並列数 |
+| `PROXY_MAX_FAILS` | `3` | 連続失敗でそのプロキシを切る回数 |
+| `SCAN_MIN_DELAY_MS` | `400` | 1プロキシあたりの最低リクエスト間隔 |
+| `PROXY_PROBE_NAME` | `discord` | 到達性チェックに使う既知の取得済みユーザー名 |
+
+GitHub Actionsの`scan.yml`から使うには、Variablesに `PROXY_SCAN=true` を設定する
+（`SCANNER_ENABLED`や`WORKER_URL`は共通）。
+
+**注意:** 無料プロキシは匿名性・安定性が保証されない（ログを見られる/改ざんされるリスクがある）。
+ここで流れるのはユーザー名の空き確認リクエストだけ（認証情報もトークンも乗らない）だが、
+プロキシ運営者が通信内容を記録・改変しうる前提は忘れないこと。
+
 ## 設定（wrangler.toml の `[vars]`）
 
 | 変数 | 既定 | 説明 |

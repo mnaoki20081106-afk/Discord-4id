@@ -1,6 +1,7 @@
 # 外部スキャナー（任意）
 # Cloudflare Workers から Discord へのリクエストがブロックされる場合や、
 # もっと速く回したい場合に、GitHub Actions の IP からスキャンする。
+# PROXY_SCAN=true（vars）なら、無料プロキシを並列で使って1本のIPより速く撃つ proxy-scan.js を使う。
 # Secrets に SCAN_SECRET を設定すると動く（止めたいときは Variables に SCANNER_ENABLED=false）
 name: scan
 on:
@@ -20,11 +21,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci
       - name: scan
         run: |
           if [ -z "$SCAN_SECRET" ]; then echo 'SCAN_SECRET が未設定なのでスキップ'; exit 0; fi
-          node scripts/external-scan.js
+          if [ "$PROXY_SCAN" = "true" ]; then
+            node scripts/proxy-scan.js
+          else
+            node scripts/external-scan.js
+          fi
         env:
           WORKER_URL: ${{ vars.WORKER_URL || 'https://discord-4id.c53gftun651-tiktok.workers.dev' }}
           SCAN_SECRET: ${{ secrets.SCAN_SECRET }}
           SCAN_DURATION_SEC: '3300'
+          PROXY_SCAN: ${{ vars.PROXY_SCAN }}
+          PROXY_MAX_WORKERS: ${{ vars.PROXY_MAX_WORKERS }}
+          PROXY_VALIDATE_CONCURRENCY: ${{ vars.PROXY_VALIDATE_CONCURRENCY }}
