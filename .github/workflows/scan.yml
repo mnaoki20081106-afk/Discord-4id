@@ -25,6 +25,14 @@ on:
         description: 'proxy-scan: 検証キューに入れる候補数上限。未指定/0なら全件（約55万件）。手動テスト用に小さくできる'
         required: false
         type: string
+      gateway_concurrency:
+        description: 'gateway-scan: 同時セッション数。課金があるので手動テストでは小さくする'
+        required: false
+        type: string
+      gateway_requests_per_session:
+        description: 'gateway-scan: 1セッションあたりの上限リクエスト数。手動テストでは小さくする'
+        required: false
+        type: string
 concurrency:
   group: scan
   cancel-in-progress: false
@@ -63,5 +71,5 @@ jobs:
           GATEWAY_PORT: ${{ vars.GATEWAY_PORT }}
           GATEWAY_LOGIN: ${{ secrets.GATEWAY_LOGIN }}
           GATEWAY_PASSWORD: ${{ secrets.GATEWAY_PASSWORD }}
-          GATEWAY_CONCURRENCY: ${{ vars.GATEWAY_CONCURRENCY }}
-          GATEWAY_REQUESTS_PER_SESSION: ${{ vars.GATEWAY_REQUESTS_PER_SESSION }}
+          GATEWAY_CONCURRENCY: ${{ inputs.gateway_concurrency || vars.GATEWAY_CONCURRENCY }}
+          GATEWAY_REQUESTS_PER_SESSION: ${{ inputs.gateway_requests_per_session || vars.GATEWAY_REQUESTS_PER_SESSION }}
