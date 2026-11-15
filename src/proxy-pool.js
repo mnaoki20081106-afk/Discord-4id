@@ -1,7 +1,11 @@
 // 無料プロキシ経由で Discord の非認証確認API (username-attempt-unauthed) を叩くためのプール管理。
 // 各ソースから ip:port を集めて、実際に Discord まで抜けるものだけ残す（HTTP/HTTPSのみ。SOCKSはundiciが
 // ネイティブ対応しないので除外）。各プロキシは別IPなので、1本ずつ独立したレート制限バケットを持つ想定。
-import { ProxyAgent } from 'undici';
+import { fetch as undiciFetch, ProxyAgent } from 'undici';
+// Node のグローバル fetch は内蔵版 undici を使っており、npm の undici パッケージが作る
+// ProxyAgent（dispatcher）を渡すとインターセプタのバージョン不一致で
+// "UND_ERR_INVALID_ARG: invalid onRequestStart method" になる。
+// dispatcher を使うときは同じ undici パッケージの fetch を使う。
 
 export const DEFAULT_PROXY_SOURCES = [
   { name: 'xyzs996', url: 'https://raw.githubusercontent.com/xyzs996/free-proxy-health-list/main/proxies/all/data.txt' },
@@ -85,13 +89,13 @@ export async function fetchProxyCandidates(sources = DEFAULT_PROXY_SOURCES, { fe
 }
 
 /** 指定プロキシ経由で fetch するラッパーを作る（checker.checkUsername の fetchImpl にそのまま渡せる） */
-export function makeProxyFetch(proxy, { fetchImpl = fetch, requestTimeoutMs = 8000 } = {}) {
+export function makeProxyFetch(proxy, { requestTimeoutMs = 8000 } = {}) {
   const agent = new ProxyAgent({ uri: proxyKey(proxy), proxyTls: { rejectUnauthorized: false }, requestTls: { rejectUnauthorized: false } });
   return async (url, opts = {}) => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), requestTimeoutMs);
     try {
-      return await fetchImpl(url, { ...opts, dispatcher: agent, signal: ctrl.signal });
+      return await undiciFetch(url, { ...opts, dispatcher: agent, signal: ctrl.signal });
     } finally {
       clearTimeout(timer);
     }

@@ -33,7 +33,10 @@ export async function checkUsername(name, { fetchImpl = fetch } = {}) {
       body: JSON.stringify({ username: name }),
     });
   } catch (e) {
-    return { status: 'error', code: 0, message: String(e?.message || e), rate: null };
+    // fetch の TypeError はメッセージが "fetch failed" で潰れるので、本当の原因(cause)を拾う
+    const detail = e?.cause?.message || e?.cause?.code || '';
+    const message = detail ? `${e?.message || e}: ${detail}` : String(e?.message || e);
+    return { status: 'error', code: 0, message, rate: null };
   }
 
   const rate = readRateLimit(res.headers);
