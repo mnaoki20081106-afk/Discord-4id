@@ -14,11 +14,11 @@ if (!base || !secret) {
 
 const durationMs = Number(process.env.SCAN_DURATION_SEC || 270) * 1000;
 const heartbeatMs = Number(process.env.PROXY_HEARTBEAT_MS || 10000);
-const validateConcurrency = Number(process.env.PROXY_VALIDATE_CONCURRENCY || 250);
-const candidateLimit = Number(process.env.PROXY_CANDIDATE_LIMIT || 6000); // ソース合計が数万〜十数万になるので検証前に間引く
+const validateConcurrency = Number(process.env.PROXY_VALIDATE_CONCURRENCY || 1000);
+const candidateLimit = Number(process.env.PROXY_CANDIDATE_LIMIT || 150000); // 集めた候補(40ソース/約55万件)のうちどこまで検証に回すか
 const validateTimeoutMs = Number(process.env.PROXY_VALIDATE_TIMEOUT_MS || 4000); // 1本あたりの到達性チェック
-const validateDeadlineMs = Number(process.env.PROXY_VALIDATE_DEADLINE_MS || 150000); // 検証フェーズ全体の上限（止まったプロキシでハングしても打ち切る）
-const maxWorkers = Number(process.env.PROXY_MAX_WORKERS || 150);
+const validateDeadlineMs = Number(process.env.PROXY_VALIDATE_DEADLINE_MS || 600000); // 検証フェーズ全体の上限（止まったプロキシでハングしても打ち切る）。本番は55分枠なので10分使っても惜しくない
+const maxWorkers = Number(process.env.PROXY_MAX_WORKERS || 400);
 const minDelayMs = Number(process.env.SCAN_MIN_DELAY_MS || 400);
 const probeName = process.env.PROXY_PROBE_NAME || 'discord'; // 既に取られている名前。JSONが返れば抜けてる証拠
 const batchFetchSize = Number(process.env.SCAN_BATCH_FETCH || 500); // Workerから一度に引く件数

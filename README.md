@@ -124,9 +124,10 @@ WORKER_URL=... SCAN_SECRET=... npm run scan:proxy
 | 変数 | 既定 | 説明 |
 |---|---|---|
 | `SCAN_DURATION_SEC` | `270` | 実行時間（秒） |
-| `PROXY_CANDIDATE_LIMIT` | `6000` | 全ソース合算後、検証にかける候補数の上限（シャッフルして間引く） |
-| `PROXY_MAX_WORKERS` | `150` | 同時に使うプロキシ本数の上限 |
-| `PROXY_VALIDATE_CONCURRENCY` | `250` | 到達性チェックの並列数 |
+| `PROXY_CANDIDATE_LIMIT` | `150000` | 全ソース合算後（約55万件）、検証にかける候補数の上限（シャッフルして間引く） |
+| `PROXY_MAX_WORKERS` | `400` | 同時に使うプロキシ本数の上限 |
+| `PROXY_VALIDATE_CONCURRENCY` | `1000` | 到達性チェックの並列数 |
+| `PROXY_VALIDATE_DEADLINE_MS` | `600000` | 検証フェーズ全体の上限（10分）。本番は55分枠なので余裕を見て長め |
 | `PROXY_MAX_FAILS` | `3` | 連続失敗でそのプロキシを切る回数 |
 | `SCAN_MIN_DELAY_MS` | `400` | 1プロキシあたりの最低リクエスト間隔 |
 | `PROXY_PROBE_NAME` | `discord` | 到達性チェックに使う既知の取得済みユーザー名 |
