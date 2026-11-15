@@ -1,0 +1,31 @@
+name = "discord-4id"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# 1分ごとにスキャン（無料プランでOK）。SCAN_MODE="external" にすると Worker 側のスキャンは止まる
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "discord-4id"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+# スキャン対象の文字数（この順に優先して1周ずつ回る）
+SCAN_LENGTHS = "3,4"
+# Discord ユーザー名で使える文字（英小文字・数字・_ ・.）
+CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789_."
+# 1回の cron で確認する件数（無料プランのサブリクエスト上限 50 未満にする）
+SCAN_BATCH = "20"
+# リクエスト間の待ち時間(ms)
+SCAN_DELAY_MS = "700"
+# 「空き」と判定した名前を再確認する間隔(時間)
+RECHECK_HOURS = "12"
+# "worker" = Cloudflare の cron でスキャン / "external" = GitHub Actions などからスキャン
+SCAN_MODE = "worker"
+
+# シークレット（wrangler secret put で設定）:
+#   DISCORD_PUBLIC_KEY   … Developer Portal の Public Key
+#   DISCORD_APPLICATION_ID … Application ID
+#   SCAN_SECRET          … 外部スキャナー用の合言葉（external モードを使う場合のみ）

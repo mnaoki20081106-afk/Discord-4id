@@ -1,0 +1,27 @@
+# 外部スキャナー（任意）
+# Cloudflare Workers から Discord へのリクエストがブロックされる場合や、
+# もっと速く回したい場合に、GitHub Actions の IP からスキャンする。
+# 使うには: リポジトリ Variables に SCANNER_ENABLED=true と WORKER_URL、Secrets に SCAN_SECRET を設定
+name: scan
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: scan
+  cancel-in-progress: false
+jobs:
+  scan:
+    if: vars.SCANNER_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/external-scan.js
+        env:
+          WORKER_URL: ${{ vars.WORKER_URL }}
+          SCAN_SECRET: ${{ secrets.SCAN_SECRET }}
+          SCAN_DURATION_SEC: '480'

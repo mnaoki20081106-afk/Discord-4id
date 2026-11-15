@@ -1,0 +1,19 @@
+{
+  "name": "discord-4id",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Discord の 3〜4文字ユーザー名の空きを総当りで探し、/id で一覧を返す Discord Bot (Cloudflare Workers)",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute discord-4id --remote --file=./schema.sql",
+    "db:init:local": "wrangler d1 execute discord-4id --local --file=./schema.sql",
+    "register": "node scripts/register-commands.js",
+    "scan:external": "node scripts/external-scan.js",
+    "test": "node --test --no-warnings test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
