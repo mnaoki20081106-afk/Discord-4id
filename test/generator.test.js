@@ -32,3 +32,11 @@ test('4文字でも安全な整数範囲', () => {
   assert.ok(n * n < Number.MAX_SAFE_INTEGER);
   assert.equal(seqToName(n - 1, 4, DEFAULT_CHARSET).length, 4);
 });
+
+test('paceMs: レート制限ヘッダーに合わせて待つ', async () => {
+  const { paceMs } = await import('../src/checker.js');
+  assert.equal(paceMs(null, 1000), 1000);
+  assert.equal(paceMs({ remaining: 0, resetAfter: 10 }, 1000), 10250);
+  assert.equal(paceMs({ remaining: 4, resetAfter: 10 }, 1000), 2000);
+  assert.equal(paceMs({ remaining: 49, resetAfter: 1 }, 1000), 1000);
+});
