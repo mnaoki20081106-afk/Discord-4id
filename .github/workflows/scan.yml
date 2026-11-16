@@ -73,3 +73,6 @@ jobs:
           GATEWAY_PASSWORD: ${{ secrets.GATEWAY_PASSWORD }}
           GATEWAY_CONCURRENCY: ${{ inputs.gateway_concurrency || vars.GATEWAY_CONCURRENCY }}
           GATEWAY_REQUESTS_PER_SESSION: ${{ inputs.gateway_requests_per_session || vars.GATEWAY_REQUESTS_PER_SESSION }}
+      - name: show cumulative stats
+        if: always()
+        run: curl -sS "${{ vars.WORKER_URL || 'https://discord-4id.c53gftun651-tiktok.workers.dev' }}/"
